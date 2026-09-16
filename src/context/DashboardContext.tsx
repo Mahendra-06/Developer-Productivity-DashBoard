@@ -327,6 +327,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const currentName = effectiveUser?.name?.toLowerCase();
 
         const accessibleProjects = backendProjects.value.filter((p: any) => {
+          // Personal task workspaces are an internal persistence detail, not
+          // user-managed projects or CI/CD repositories.
+          if (p.key?.toUpperCase().startsWith('PERSONAL-')) return false;
+
           // Team projects are visible to all members
           const isIndividual = p.projectType === 'individual';
           if (!isIndividual) return true;
@@ -453,6 +457,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (e) {
         console.warn('PR cache restore note:', e);
       }
+
+      // Do not restore legacy synthetic PRs for internal personal task workspaces.
+      currentPrs = currentPrs.filter(pr =>
+        !pr.title?.toUpperCase().startsWith('[PERSONAL-') &&
+        !pr.repo?.toLowerCase().startsWith('dmetrics/personal-')
+      );
 
       let currentDeployments: DeploymentItem[] = [];
       if (backendDeployments.status === 'fulfilled') {

@@ -489,7 +489,7 @@ export class MongoDatabase {
         completedTasks,
         progress,
       } as Project;
-    });
+    }).filter(project => !project.key.toUpperCase().startsWith('PERSONAL-'));
   }
 
   public async getProjectById(idOrKey: string): Promise<Project | null> {
@@ -575,7 +575,7 @@ export class MongoDatabase {
     const repoSlug = newProject.repoUrl ? newProject.repoUrl.replace(/^https?:\/\/github\.com\//i, '') : `dmetrics/${newProject.key.toLowerCase()}`;
     const prNumber = (Math.abs(newProject.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
     const isTeam = isTeamProject;
-    await this.createPullRequest({
+    if (!newProject.key.toUpperCase().startsWith('PERSONAL-')) await this.createPullRequest({
       id: `pr_proj_${newProject.id}`,
       number: prNumber,
       prNumber: `PR #${prNumber}`,
@@ -1019,6 +1019,9 @@ export class MongoDatabase {
       const allPRs = await PullRequestModel.find({}).lean();
 
       for (const p of projects) {
+        // Personal task workspaces are internal containers, not repositories.
+        if (p.key.toUpperCase().startsWith('PERSONAL-')) continue;
+
         const repoSlug = p.repoUrl
           ? p.repoUrl.replace(/^https?:\/\/github\.com\//i, '')
           : `dmetrics/${p.key.toLowerCase()}`;
@@ -1214,6 +1217,12 @@ export class MongoDatabase {
         isReviewed: Boolean(pr.isReviewed),
       };
     });
+
+    // Do not surface legacy PRs that were generated for personal task workspaces.
+    mapped = mapped.filter(pr =>
+      !pr.title?.toUpperCase().startsWith('[PERSONAL-') &&
+      !pr.repo?.toLowerCase().startsWith('dmetrics/personal-')
+    );
 
     if (filters?.queueType && filters.queueType !== 'all') {
       const q = filters.queueType.toLowerCase();

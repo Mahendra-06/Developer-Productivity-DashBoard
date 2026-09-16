@@ -233,6 +233,9 @@ export class LocalPersistentDatabase implements IDatabase {
 
   public ensureProjectPRsSync() {
     this.projects.forEach(p => {
+      // Personal task workspaces are internal containers, not repositories.
+      if (p.key.toUpperCase().startsWith('PERSONAL-')) return;
+
       const repoSlug = p.repoUrl ? p.repoUrl.replace(/^https?:\/\/github\.com\//i, '') : `dmetrics/${p.key.toLowerCase()}`;
       const expectedId = `pr_proj_${p.id}`;
       const hasPR = this.pullRequests.some(pr =>
@@ -613,6 +616,9 @@ export class LocalPersistentDatabase implements IDatabase {
   public async getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; scope?: string }): Promise<Project[]> {
     let result = [...this.projects];
 
+    // Hide automatically created personal-task containers from project views.
+    result = result.filter(p => !p.key.toUpperCase().startsWith('PERSONAL-'));
+
     result = result.map(p => {
       const projectTasks = this.tasks.filter(t => t.projectId === p.id);
       const totalTasks = projectTasks.length;
@@ -728,7 +734,7 @@ export class LocalPersistentDatabase implements IDatabase {
     const repoSlug = newProject.repoUrl ? newProject.repoUrl.replace(/^https?:\/\/github\.com\//i, '') : `dmetrics/${newProject.key.toLowerCase()}`;
     const prNumber = (Math.abs(newProject.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
     const isTeam = isTeamProject;
-    await this.createPullRequest({
+    if (!newProject.key.toUpperCase().startsWith('PERSONAL-')) await this.createPullRequest({
       id: `pr_proj_${newProject.id}`,
       number: prNumber,
       prNumber: `PR #${prNumber}`,
@@ -1234,6 +1240,12 @@ export class LocalPersistentDatabase implements IDatabase {
         isReviewed: Boolean(p.isReviewed),
       };
     });
+
+    // Do not surface legacy PRs that were generated for personal task workspaces.
+    result = result.filter(p =>
+      !p.title?.toUpperCase().startsWith('[PERSONAL-') &&
+      !p.repo?.toLowerCase().startsWith('dmetrics/personal-')
+    );
 
     // Queue filtering
     if (filters?.queueType && filters.queueType !== 'all') {

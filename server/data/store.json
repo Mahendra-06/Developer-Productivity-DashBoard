@@ -75,7 +75,7 @@
         }
       ],
       "createdAt": "2026-01-15T08:00:00.000Z",
-      "updatedAt": "2026-09-16T17:07:32.205Z"
+      "updatedAt": "2026-09-16T17:29:38.742Z"
     },
     {
       "id": "usr_2",
@@ -178,8 +178,8 @@
       "githubToken": "",
       "githubUrl": "",
       "invitedBy": "",
-      "passwordHash": "$2b$10$KCgrSbbIfp57DjNxAfHG.O0mcjvdV2102nU.UgocTKUFp7j.bv/eO",
-      "id": "usr_1789578451455",
+      "passwordHash": "$2b$10$cLJ19xrGaHbT.nP5pJ4AXucoWhfeK/tqDmCsdAQuPXe6MznITu/9W",
+      "id": "usr_1789579777924",
       "productivityScore": 0,
       "activeStreak": 0,
       "weeklyGoalHours": 40,
@@ -191,8 +191,8 @@
       "skills": [],
       "contributions": [],
       "integrations": [],
-      "createdAt": "2026-09-16T17:07:31.455Z",
-      "updatedAt": "2026-09-16T17:07:31.455Z"
+      "createdAt": "2026-09-16T17:29:37.924Z",
+      "updatedAt": "2026-09-16T17:29:37.924Z"
     },
     {
       "name": "Junior Dev",
@@ -207,8 +207,8 @@
       "githubToken": "",
       "githubUrl": "",
       "invitedBy": "",
-      "passwordHash": "$2b$10$FLzGCeTomIFS.nCwLNiWG.Zf2uQXPnc7yqCnS.y5it5Hd0LkqRndW",
-      "id": "usr_1789578451772",
+      "passwordHash": "$2b$10$8aZ/0NO80skaVOcoDWb2J.hssOj/RAVf4wq5XMsk9TuB.WJrnqROm",
+      "id": "usr_1789579778256",
       "productivityScore": 0,
       "activeStreak": 0,
       "weeklyGoalHours": 40,
@@ -220,8 +220,8 @@
       "skills": [],
       "contributions": [],
       "integrations": [],
-      "createdAt": "2026-09-16T17:07:31.772Z",
-      "updatedAt": "2026-09-16T17:07:31.772Z"
+      "createdAt": "2026-09-16T17:29:38.256Z",
+      "updatedAt": "2026-09-16T17:29:38.256Z"
     }
   ],
   "projects": [
@@ -353,7 +353,7 @@
       "updatedAt": "2026-09-05T10:30:00.000Z"
     },
     {
-      "id": "proj_1789578451304",
+      "id": "proj_1789579777756",
       "name": "Quantum Telemetry Mesh",
       "key": "QTM",
       "description": "Sub-millisecond packet telemetry aggregation pipeline.",
@@ -638,11 +638,11 @@
         "usr_1",
         "usr_2"
       ],
-      "createdAt": "2026-09-16T17:07:31.304Z",
-      "updatedAt": "2026-09-16T17:07:31.308Z"
+      "createdAt": "2026-09-16T17:29:37.756Z",
+      "updatedAt": "2026-09-16T17:29:37.762Z"
     },
     {
-      "id": "proj_1789578451329",
+      "id": "proj_1789579777784",
       "name": "Alex Chen's Personal Tasks",
       "key": "PERSONAL-USR1",
       "description": "Automatically created workspace for tasks without a selected project.",
@@ -904,8 +904,8 @@
       "teamIds": [
         "usr_1"
       ],
-      "createdAt": "2026-09-16T17:07:31.329Z",
-      "updatedAt": "2026-09-16T17:07:31.329Z"
+      "createdAt": "2026-09-16T17:29:37.784Z",
+      "updatedAt": "2026-09-16T17:29:37.784Z"
     }
   ],
   "tasks": [
@@ -1230,13 +1230,13 @@
       "updatedAt": "2026-09-04T10:00:00.000Z"
     },
     {
-      "id": "task_1789578451330",
+      "id": "task_1789579777785",
       "key": "PERSONAL-USR1-101",
       "title": "Capture unplanned engineering work",
       "description": "A task created before any project is selected in the dashboard.",
       "status": "backlog",
       "priority": "medium",
-      "projectId": "proj_1789578451329",
+      "projectId": "proj_1789579777784",
       "projectName": "Alex Chen's Personal Tasks",
       "assigneeId": "usr_1",
       "assignee": {
@@ -1366,11 +1366,11 @@
       "tags": [
         "Personal"
       ],
-      "createdAt": "2026-09-16T17:07:31.330Z",
-      "updatedAt": "2026-09-16T17:07:31.330Z"
+      "createdAt": "2026-09-16T17:29:37.785Z",
+      "updatedAt": "2026-09-16T17:29:37.785Z"
     },
     {
-      "id": "task_1789578458269",
+      "id": "task_1789579781050",
       "key": "CPE-123",
       "title": "Fix Redis Cache Connection Timeout",
       "description": "Investigate connection pooling leak under simulated canary load",
@@ -1392,15 +1392,15 @@
         "AI-Created",
         "Copilot"
       ],
-      "createdAt": "2026-09-16T17:07:38.269Z",
-      "updatedAt": "2026-09-16T17:07:38.269Z"
+      "createdAt": "2026-09-16T17:29:41.050Z",
+      "updatedAt": "2026-09-16T17:29:41.050Z"
     }
   ],
   "pullRequests": [
     {
-      "id": "pr_1789578452215",
-      "number": 110,
-      "prNumber": "PR #110",
+      "id": "pr_1789579778763",
+      "number": 109,
+      "prNumber": "PR #109",
       "title": "[CPE-104] Distributed Consensus Engine",
       "repo": "innovate/core-engine",
       "branch": "feat/cpe-104-consensus",
@@ -1459,62 +1459,12 @@
           "Continuous integration checks green"
         ]
       },
-      "createdAt": "2026-09-16T17:07:32.215Z",
-      "updatedAt": "2026-09-16T17:07:32.215Z",
+      "createdAt": "2026-09-16T17:29:38.764Z",
+      "updatedAt": "2026-09-16T17:29:38.764Z",
       "turnaroundHours": 1.2
     },
     {
-      "id": "pr_proj_proj_1789578451329",
-      "number": 256,
-      "prNumber": "PR #256",
-      "title": "[PERSONAL-USR1] Feature Architecture & CI/CD Pipeline Setup",
-      "repo": "dmetrics/personal-usr1",
-      "branch": "feat/personal-usr1-pipeline-arch",
-      "targetBranch": "main",
-      "author": {
-        "id": "usr_1",
-        "name": "Alex Chen",
-        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        "role": "Staff Platform Engineer",
-        "username": "alexchen-dev"
-      },
-      "reviewers": [],
-      "projectId": "proj_1789578451329",
-      "projectType": "individual",
-      "status": "open",
-      "checksStatus": "passed",
-      "ciStatus": "passing",
-      "additions": 380,
-      "deletions": 18,
-      "commentsCount": 0,
-      "filesChangedCount": 3,
-      "waitingHours": 0.5,
-      "slaStatus": "healthy",
-      "isReviewed": false,
-      "isMerged": false,
-      "queueType": "review_requested",
-      "diffSnippet": "+ // CI/CD Setup for [PERSONAL-USR1]: Alex Chen's Personal Tasks\n+ export const projectKey = 'PERSONAL-USR1';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;",
-      "aiInsights": {
-        "summary": "Continuous integration baseline and CI/CD workflow definition for Alex Chen's Personal Tasks. Automated checks passing.",
-        "performance": [
-          "Zero latency regression",
-          "Optimal bundle budgets"
-        ],
-        "security": [
-          "No secret leaks detected",
-          "Strict type assertions"
-        ],
-        "testing": [
-          "Unit tests passed (100%)",
-          "Continuous integration green"
-        ]
-      },
-      "createdAt": "2026-09-16T17:07:31.329Z",
-      "updatedAt": "2026-09-16T17:07:31.329Z",
-      "turnaroundHours": 1.2
-    },
-    {
-      "id": "pr_proj_proj_1789578451304",
+      "id": "pr_proj_proj_1789579777756",
       "number": 342,
       "prNumber": "PR #342",
       "title": "[QTM] Feature Architecture & CI/CD Pipeline Setup",
@@ -1538,7 +1488,7 @@
           "status": "pending"
         }
       ],
-      "projectId": "proj_1789578451304",
+      "projectId": "proj_1789579777756",
       "projectType": "team",
       "status": "open",
       "checksStatus": "passed",
@@ -1568,8 +1518,8 @@
           "Continuous integration green"
         ]
       },
-      "createdAt": "2026-09-16T17:07:31.304Z",
-      "updatedAt": "2026-09-16T17:07:31.304Z",
+      "createdAt": "2026-09-16T17:29:37.756Z",
+      "updatedAt": "2026-09-16T17:29:37.756Z",
       "turnaroundHours": 1.2
     },
     {
@@ -1619,7 +1569,7 @@
         ]
       },
       "createdAt": "2026-08-10T14:00:00.000Z",
-      "updatedAt": "2026-09-16T17:07:31.182Z",
+      "updatedAt": "2026-09-16T17:29:37.632Z",
       "turnaroundHours": 1.5
     },
     {
@@ -1678,7 +1628,7 @@
         ]
       },
       "createdAt": "2026-08-01T11:00:00.000Z",
-      "updatedAt": "2026-09-16T17:07:31.182Z",
+      "updatedAt": "2026-09-16T17:29:37.632Z",
       "turnaroundHours": 1.5
     },
     {
@@ -1728,7 +1678,7 @@
         ]
       },
       "createdAt": "2026-07-15T08:30:00.000Z",
-      "updatedAt": "2026-09-16T17:07:31.181Z",
+      "updatedAt": "2026-09-16T17:29:37.631Z",
       "turnaroundHours": 1.5
     },
     {
@@ -1764,8 +1714,8 @@
       "deletions": 340,
       "commentsCount": 11,
       "createdAt": "2026-09-04T11:20:00Z",
-      "updatedAt": "2026-09-16T17:07:32.235Z",
-      "turnaroundHours": 293.8,
+      "updatedAt": "2026-09-16T17:29:38.799Z",
+      "turnaroundHours": 294.2,
       "isReviewed": true,
       "slaStatus": "healthy",
       "reviewedBy": {
@@ -1891,11 +1841,11 @@
   ],
   "deployments": [
     {
-      "id": "dep_cd_1789578452235",
+      "id": "dep_cd_1789579778799",
       "environment": "production",
       "serviceName": "core-engine",
-      "version": "v1.84.1",
-      "commitSha": "286df97",
+      "version": "v1.97.1",
+      "commitSha": "e9391ee",
       "commitMessage": "Merge PR #pr_1: Implement Redis Bloom filter for cache hit optimization",
       "branch": "main",
       "repositoryUrl": "https://github.com/innovate/core-engine",
@@ -1906,7 +1856,7 @@
         "username": "alexchen-dev"
       },
       "status": "success",
-      "durationSeconds": 50,
+      "durationSeconds": 40,
       "deployedAt": "Just now",
       "url": "https://prod.dmetrics.internal",
       "sloPassRate": 99.98,
@@ -1983,8 +1933,8 @@
   ],
   "auditEvents": [
     {
-      "id": "evt_pr_1789578452235",
-      "timestamp": "2026-09-16T17:07:32.235Z",
+      "id": "evt_pr_1789579778800",
+      "timestamp": "2026-09-16T17:29:38.800Z",
       "relativeTime": "Just now",
       "category": "prs",
       "actor": {
@@ -1992,14 +1942,14 @@
         "avatar": "https://github.com/Mahendra-06.png",
         "role": "Backend Systems Engineer"
       },
-      "action": "merged pull request #PR #142 (reviewed by Elena Rostova) & deployed v1.84.1 to Production",
+      "action": "merged pull request #PR #142 (reviewed by Elena Rostova) & deployed v1.97.1 to Production",
       "target": "Implement Redis Bloom filter for cache hit optimization (feat/bloom-cache-opt → main)",
       "metadata": "+1420 / -340 lines • Continuous Deployment to Production with 99.9% SLO verification",
       "status": "success"
     },
     {
-      "id": "evt_pr_app_1789578452227",
-      "timestamp": "2026-09-16T17:07:32.227Z",
+      "id": "evt_pr_app_1789579778783",
+      "timestamp": "2026-09-16T17:29:38.783Z",
       "relativeTime": "Just now",
       "category": "prs",
       "actor": {
@@ -2009,12 +1959,12 @@
       },
       "action": "reviewed and approved PR #PR #142",
       "target": "Implement Redis Bloom filter for cache hit optimization (innovate/core-engine)",
-      "metadata": "Turnaround: 293.8 hrs • Team turnaround updated",
+      "metadata": "Turnaround: 294.2 hrs • Team turnaround updated",
       "status": "success"
     },
     {
-      "id": "evt_pr_req_1789578452223",
-      "timestamp": "2026-09-16T17:07:32.223Z",
+      "id": "evt_pr_req_1789579778775",
+      "timestamp": "2026-09-16T17:29:38.775Z",
       "relativeTime": "Just now",
       "category": "prs",
       "actor": {
@@ -2028,8 +1978,8 @@
       "status": "warning"
     },
     {
-      "id": "evt_pr_1789578452215",
-      "timestamp": "2026-09-16T17:07:32.215Z",
+      "id": "evt_pr_1789579778764",
+      "timestamp": "2026-09-16T17:29:38.764Z",
       "relativeTime": "Just now",
       "category": "prs",
       "actor": {
@@ -2037,14 +1987,14 @@
         "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
         "role": "Engineer"
       },
-      "action": "opened pull request #110",
+      "action": "opened pull request #109",
       "target": "[CPE-104] Distributed Consensus Engine (feat/cpe-104-consensus → main)",
       "metadata": "Repo: innovate/core-engine • CI checks passing • Requires Peer Review",
       "status": "success"
     },
     {
-      "id": "evt_1789578452207",
-      "timestamp": "2026-09-16T17:07:32.207Z",
+      "id": "evt_1789579778748",
+      "timestamp": "2026-09-16T17:29:38.748Z",
       "relativeTime": "Just now",
       "action": "completed 25m deep work session",
       "category": "system",
@@ -2058,23 +2008,8 @@
       }
     },
     {
-      "id": "evt_pr_1789578451329",
-      "timestamp": "2026-09-16T17:07:31.329Z",
-      "relativeTime": "Just now",
-      "category": "prs",
-      "actor": {
-        "name": "Alex Chen",
-        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        "role": "Staff Platform Engineer"
-      },
-      "action": "opened pull request #256",
-      "target": "[PERSONAL-USR1] Feature Architecture & CI/CD Pipeline Setup (feat/personal-usr1-pipeline-arch → main)",
-      "metadata": "Repo: dmetrics/personal-usr1 • CI checks passing • Direct Merge Allowed",
-      "status": "success"
-    },
-    {
-      "id": "evt_pr_1789578451304",
-      "timestamp": "2026-09-16T17:07:31.304Z",
+      "id": "evt_pr_1789579777756",
+      "timestamp": "2026-09-16T17:29:37.756Z",
       "relativeTime": "Just now",
       "category": "prs",
       "actor": {
