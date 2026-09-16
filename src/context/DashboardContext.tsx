@@ -658,7 +658,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const token = localStorage.getItem('dmetrics_token') || '';
     socketService.connect(token);
 
-    const handleTaskCreated = (newTask: any) => setTasks(prev => [...prev, newTask]);
+    const handleTaskCreated = (newTask: any) => setTasks(prev => {
+      const existingIndex = prev.findIndex(task => task.id === newTask.id);
+      if (existingIndex === -1) return [newTask, ...prev];
+
+      // A local optimistic task may already have been replaced by the REST
+      // response when Socket.IO delivers the same create event.
+      const next = [...prev];
+      next[existingIndex] = { ...next[existingIndex], ...newTask };
+      return next;
+    });
     const handleTaskUpdated = (updatedTask: any) => setTasks(prev => prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t));
     const handleTaskDeleted = ({ id }: { id: string }) => setTasks(prev => prev.filter(t => t.id !== id));
 
@@ -947,8 +956,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         tags: newTaskData.tags,
       });
 
-      // Update task in state with the real server-generated record
-      setTasks(prev => prev.map(t => (t.id === tempId ? serverTask : t)));
+      // Socket.IO can deliver this task before the HTTP response. Remove that
+      // duplicate, then replace the optimistic record with the server record.
+      setTasks(prev => {
+        const withoutServerCopy = prev.filter(task => task.id !== serverTask.id);
+        const optimisticIndex = withoutServerCopy.findIndex(task => task.id === tempId);
+
+        if (optimisticIndex === -1) return [serverTask, ...withoutServerCopy];
+
+        const next = [...withoutServerCopy];
+        next[optimisticIndex] = serverTask;
+        return next;
+      });
     } catch (error: any) {
       console.warn('Backend create error (retained locally):', error);
       toast.warning('Persisted locally. Backend sync will retry.', 'Offline Mode');
