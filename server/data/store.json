@@ -1,0 +1,1695 @@
+{
+  "users": [
+    {
+      "id": "usr_1",
+      "name": "Alex Chen",
+      "email": "alex.chen@innovate.dev",
+      "role": "Staff Platform Engineer",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      "username": "alexchen-dev",
+      "bio": "Building resilient distributed consensus, zero-downtime cache meshes, and developer productivity tooling across hybrid multi-region clouds.",
+      "location": "San Francisco, CA",
+      "timezone": "UTC-7 (Pacific Time)",
+      "githubUsername": "alexchen-dev",
+      "githubUrl": "https://github.com/alexchen-dev",
+      "productivityScore": 94,
+      "activeStreak": 19,
+      "weeklyGoalHours": 42,
+      "currentGoalHours": 29.5,
+      "completedTasksCount": 42,
+      "openPRsCount": 3,
+      "mergedPRsCount": 29,
+      "focusStatus": "Deep Work on Distributed Consensus ⚡",
+      "skills": [
+        "TypeScript",
+        "Kubernetes",
+        "Go"
+      ],
+      "contributions": [
+        {
+          "id": "pr_142",
+          "prNumber": "PR #142",
+          "title": "Implement Redis Bloom filter for cache hit optimization",
+          "repo": "core-platform-engine",
+          "additions": 1420,
+          "deletions": 340,
+          "status": "merged",
+          "reviewTurnaround": "2.4 hrs",
+          "impact": "Saved 42ms p99 latency; eliminated 38% redundant DB lookups",
+          "mergedAt": "Yesterday",
+          "url": "https://github.com/dmetrics/core-platform-engine/pull/142"
+        }
+      ],
+      "integrations": [
+        {
+          "id": "1",
+          "name": "GitHub Enterprise",
+          "icon": "Github",
+          "connected": true,
+          "syncStatus": "Live Sync",
+          "lastSync": "2m ago"
+        },
+        {
+          "id": "2",
+          "name": "Jira Software",
+          "icon": "CheckSquare",
+          "connected": true,
+          "syncStatus": "Synced",
+          "lastSync": "10m ago"
+        },
+        {
+          "id": "3",
+          "name": "Linear App",
+          "icon": "GitPullRequest",
+          "connected": true,
+          "syncStatus": "Live Sync",
+          "lastSync": "Just now"
+        },
+        {
+          "id": "4",
+          "name": "Datadog APM",
+          "icon": "Activity",
+          "connected": true,
+          "syncStatus": "Healthy",
+          "lastSync": "1m ago"
+        }
+      ],
+      "createdAt": "2026-01-15T08:00:00.000Z",
+      "updatedAt": "2026-09-16T14:47:06.246Z"
+    },
+    {
+      "id": "usr_2",
+      "name": "Sarah Jenkins",
+      "email": "sarah.jenkins@innovate.dev",
+      "role": "Senior Frontend Architect",
+      "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+      "username": "sarah-j",
+      "bio": "Specializing in design systems, micro-frontends, and accessible real-time interactive user interfaces.",
+      "location": "Seattle, WA",
+      "timezone": "UTC-7 (Pacific Time)",
+      "githubUsername": "sarah-j",
+      "githubUrl": "https://github.com/sarah-j",
+      "productivityScore": 91,
+      "activeStreak": 14,
+      "weeklyGoalHours": 35,
+      "currentGoalHours": 31,
+      "completedTasksCount": 38,
+      "openPRsCount": 2,
+      "mergedPRsCount": 34,
+      "createdAt": "2026-01-20T09:30:00.000Z",
+      "updatedAt": "2026-09-03T16:20:00.000Z"
+    },
+    {
+      "id": "usr_3",
+      "name": "Marcus Vance",
+      "email": "marcus.vance@innovate.dev",
+      "role": "DevOps & Cloud Specialist",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+      "username": "marcus-v",
+      "bio": "Kubernetes wizard, GitOps advocate, and infrastructure reliability enthusiast.",
+      "location": "Austin, TX",
+      "timezone": "UTC-5 (Central Time)",
+      "githubUsername": "marcus-v",
+      "githubUrl": "https://github.com/marcus-v",
+      "productivityScore": 88,
+      "activeStreak": 11,
+      "weeklyGoalHours": 40,
+      "currentGoalHours": 34.5,
+      "completedTasksCount": 29,
+      "openPRsCount": 4,
+      "mergedPRsCount": 22,
+      "createdAt": "2026-02-01T10:00:00.000Z",
+      "updatedAt": "2026-09-02T11:45:00.000Z"
+    },
+    {
+      "id": "usr_4",
+      "name": "Elena Rostova",
+      "email": "elena.rostova@innovate.dev",
+      "role": "Backend Go Engineer",
+      "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+      "username": "elena-r",
+      "bio": "Designing high-concurrency microservices, gRPC protocols, and transactional databases.",
+      "location": "New York, NY",
+      "timezone": "UTC-4 (Eastern Time)",
+      "githubUsername": "elena-r",
+      "githubUrl": "https://github.com/elena-r",
+      "productivityScore": 93,
+      "activeStreak": 22,
+      "weeklyGoalHours": 35,
+      "currentGoalHours": 32,
+      "completedTasksCount": 45,
+      "openPRsCount": 1,
+      "mergedPRsCount": 40,
+      "createdAt": "2026-02-10T11:15:00.000Z",
+      "updatedAt": "2026-09-04T15:10:00.000Z"
+    },
+    {
+      "id": "usr_5",
+      "name": "David Kim",
+      "email": "david.kim@innovate.dev",
+      "role": "Security & QA Lead",
+      "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+      "username": "davidkim-io",
+      "bio": "Zero-trust architecture, automated threat modeling, and comprehensive end-to-end resilience verification.",
+      "location": "Boston, MA",
+      "timezone": "UTC-4 (Eastern Time)",
+      "githubUsername": "davidkim-io",
+      "githubUrl": "https://github.com/davidkim-io",
+      "productivityScore": 89,
+      "activeStreak": 16,
+      "weeklyGoalHours": 35,
+      "currentGoalHours": 27,
+      "completedTasksCount": 31,
+      "openPRsCount": 2,
+      "mergedPRsCount": 26,
+      "createdAt": "2026-02-15T14:00:00.000Z",
+      "updatedAt": "2026-09-04T09:30:00.000Z"
+    },
+    {
+      "name": "Jane Doe",
+      "email": "jane.doe@innovate.dev",
+      "role": "Staff Reliability Engineer",
+      "username": "janedoe",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=janedoe",
+      "bio": "",
+      "location": "",
+      "timezone": "UTC",
+      "githubUsername": "",
+      "githubToken": "",
+      "githubUrl": "",
+      "invitedBy": "",
+      "passwordHash": "$2b$10$1y3Nlq.dG2GNZ21ULklGw.OVVSbYhj1Ty9flEYh69yLN.wpGr8GOu",
+      "id": "usr_1789570025229",
+      "productivityScore": 0,
+      "activeStreak": 0,
+      "weeklyGoalHours": 40,
+      "currentGoalHours": 0,
+      "completedTasksCount": 0,
+      "openPRsCount": 0,
+      "mergedPRsCount": 0,
+      "focusStatus": "Ready ⚡",
+      "skills": [],
+      "contributions": [],
+      "integrations": [],
+      "createdAt": "2026-09-16T14:47:05.229Z",
+      "updatedAt": "2026-09-16T14:47:05.229Z"
+    },
+    {
+      "name": "Junior Dev",
+      "email": "junior.dev@innovate.dev",
+      "role": "Junior Frontend Developer",
+      "username": "juniordev",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=juniordev",
+      "bio": "",
+      "location": "",
+      "timezone": "UTC",
+      "githubUsername": "",
+      "githubToken": "",
+      "githubUrl": "",
+      "invitedBy": "",
+      "passwordHash": "$2b$10$hxHCfTF9Q8DGJui7CAd8/e.jjtPGuaAlXVh/ahjF18aFjODlrnT1W",
+      "id": "usr_1789570025544",
+      "productivityScore": 0,
+      "activeStreak": 0,
+      "weeklyGoalHours": 40,
+      "currentGoalHours": 0,
+      "completedTasksCount": 0,
+      "openPRsCount": 0,
+      "mergedPRsCount": 0,
+      "focusStatus": "Ready ⚡",
+      "skills": [],
+      "contributions": [],
+      "integrations": [],
+      "createdAt": "2026-09-16T14:47:05.544Z",
+      "updatedAt": "2026-09-16T14:47:05.544Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj_1",
+      "name": "Core Platform Engine",
+      "key": "CPE",
+      "description": "High-throughput distributed event streaming and microservice mesh architecture.",
+      "status": "on_track",
+      "projectType": "team",
+      "progress": 78,
+      "totalTasks": 28,
+      "completedTasks": 22,
+      "repoUrl": "https://github.com/innovate/core-engine",
+      "leadId": "usr_1",
+      "teamIds": [
+        "usr_1",
+        "usr_3",
+        "usr_4"
+      ],
+      "deadline": "2026-09-25",
+      "color": "#6366f1",
+      "createdAt": "2026-05-01T10:00:00.000Z",
+      "updatedAt": "2026-09-04T14:20:00.000Z"
+    },
+    {
+      "id": "proj_2",
+      "name": "Realtime Analytics SDK",
+      "key": "RAS",
+      "description": "Ultra low-latency client telemetry pipeline with WebAssembly processing.",
+      "status": "on_track",
+      "projectType": "team",
+      "progress": 62,
+      "totalTasks": 16,
+      "completedTasks": 10,
+      "repoUrl": "https://github.com/innovate/analytics-sdk",
+      "leadId": "usr_2",
+      "teamIds": [
+        "usr_2",
+        "usr_1",
+        "usr_5"
+      ],
+      "deadline": "2026-10-10",
+      "color": "#06b6d4",
+      "createdAt": "2026-06-10T12:00:00.000Z",
+      "updatedAt": "2026-09-04T10:15:00.000Z"
+    },
+    {
+      "id": "proj_3",
+      "name": "Zero-Trust Auth Gateway",
+      "key": "ZAG",
+      "description": "OAuth2.1 / OIDC identity federation with biometric passkey and mTLS support.",
+      "status": "at_risk",
+      "projectType": "team",
+      "progress": 45,
+      "totalTasks": 20,
+      "completedTasks": 9,
+      "repoUrl": "https://github.com/innovate/auth-gateway",
+      "leadId": "usr_5",
+      "teamIds": [
+        "usr_5",
+        "usr_1",
+        "usr_3"
+      ],
+      "deadline": "2026-09-18",
+      "color": "#f59e0b",
+      "createdAt": "2026-07-01T09:00:00.000Z",
+      "updatedAt": "2026-09-04T16:45:00.000Z"
+    },
+    {
+      "id": "proj_4",
+      "name": "Aurora Design System v2",
+      "key": "ADS",
+      "description": "Accessible React UI components, WCAG AAA contrast tokens, and Tailwind presets.",
+      "status": "on_track",
+      "projectType": "individual",
+      "progress": 90,
+      "totalTasks": 24,
+      "completedTasks": 22,
+      "repoUrl": "https://github.com/innovate/aurora-ui",
+      "leadId": "usr_2",
+      "teamIds": [
+        "usr_2"
+      ],
+      "deadline": "2026-09-12",
+      "color": "#ec4899",
+      "createdAt": "2026-07-15T08:30:00.000Z",
+      "updatedAt": "2026-09-04T12:00:00.000Z"
+    },
+    {
+      "id": "proj_5",
+      "name": "Distributed Cache Mesh",
+      "key": "DCM",
+      "description": "Peer-to-peer memory caching ring with consistent hashing and dynamic replication.",
+      "status": "on_track",
+      "projectType": "team",
+      "progress": 55,
+      "totalTasks": 18,
+      "completedTasks": 10,
+      "repoUrl": "https://github.com/innovate/cache-mesh",
+      "leadId": "usr_1",
+      "teamIds": [
+        "usr_1",
+        "usr_4"
+      ],
+      "deadline": "2026-10-30",
+      "color": "#8b5cf6",
+      "createdAt": "2026-08-01T11:00:00.000Z",
+      "updatedAt": "2026-09-05T09:00:00.000Z"
+    },
+    {
+      "id": "proj_6",
+      "name": "Developer Experience Platform",
+      "key": "DXP",
+      "description": "CLI automation, ephemeral staging preview environments, and metrics aggregation.",
+      "status": "delayed",
+      "projectType": "individual",
+      "progress": 35,
+      "totalTasks": 14,
+      "completedTasks": 5,
+      "repoUrl": "https://github.com/innovate/dx-platform",
+      "leadId": "usr_3",
+      "teamIds": [
+        "usr_3"
+      ],
+      "deadline": "2026-11-15",
+      "color": "#10b981",
+      "createdAt": "2026-08-10T14:00:00.000Z",
+      "updatedAt": "2026-09-05T10:30:00.000Z"
+    },
+    {
+      "id": "proj_1789570025083",
+      "name": "Quantum Telemetry Mesh",
+      "key": "QTM",
+      "description": "Sub-millisecond packet telemetry aggregation pipeline.",
+      "status": "at_risk",
+      "projectType": "team",
+      "progress": 0,
+      "totalTasks": 0,
+      "completedTasks": 0,
+      "repoUrl": "https://github.com/dmetrics/qtm",
+      "lead": {
+        "id": "usr_1",
+        "name": "Alex Chen",
+        "email": "alex.chen@innovate.dev",
+        "role": "Staff Platform Engineer",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "username": "alexchen-dev",
+        "bio": "Building resilient distributed consensus, zero-downtime cache meshes, and developer productivity tooling across hybrid multi-region clouds.",
+        "location": "San Francisco, CA",
+        "timezone": "UTC-7 (Pacific Time)",
+        "githubUsername": "alexchen-dev",
+        "githubUrl": "https://github.com/alexchen-dev",
+        "productivityScore": 94,
+        "activeStreak": 19,
+        "weeklyGoalHours": 35,
+        "currentGoalHours": 29.5,
+        "completedTasksCount": 42,
+        "openPRsCount": 3,
+        "mergedPRsCount": 28,
+        "focusStatus": "Deep Work on Cache Invalidation 🚀",
+        "skills": [
+          {
+            "name": "TypeScript / React 19",
+            "category": "languages",
+            "level": "Expert",
+            "mastery": 96,
+            "color": "#3178c6",
+            "linesWritten": "48.2k"
+          },
+          {
+            "name": "Distributed Go / gRPC",
+            "category": "languages",
+            "level": "Senior",
+            "mastery": 92,
+            "color": "#00add8",
+            "linesWritten": "62.4k"
+          },
+          {
+            "name": "Redis / Cache Mesh",
+            "category": "distributed",
+            "level": "Advanced",
+            "mastery": 88,
+            "color": "#dc2626",
+            "linesWritten": "18.9k"
+          },
+          {
+            "name": "Kafka / Event Streams",
+            "category": "distributed",
+            "level": "Advanced",
+            "mastery": 85,
+            "color": "#eab308",
+            "linesWritten": "24.1k"
+          },
+          {
+            "name": "Kubernetes & Docker",
+            "category": "cloud",
+            "level": "Senior",
+            "mastery": 90,
+            "color": "#326ce5",
+            "linesWritten": "31.5k"
+          },
+          {
+            "name": "Zero-Trust Architecture",
+            "category": "security",
+            "level": "Advanced",
+            "mastery": 86,
+            "color": "#10b981",
+            "linesWritten": "14.7k"
+          }
+        ],
+        "contributions": [
+          {
+            "id": "pr_142",
+            "prNumber": "PR #142",
+            "title": "Implement Redis Bloom filter for cache hit optimization",
+            "repo": "core-platform-engine",
+            "additions": 1420,
+            "deletions": 340,
+            "status": "merged",
+            "reviewTurnaround": "2.4 hrs",
+            "impact": "Saved 42ms p99 latency; eliminated 38% redundant DB lookups",
+            "mergedAt": "Yesterday",
+            "url": "https://github.com/dmetrics/core-platform-engine/pull/142"
+          }
+        ],
+        "integrations": [
+          {
+            "id": "1",
+            "name": "GitHub Enterprise",
+            "icon": "Github",
+            "connected": true,
+            "syncStatus": "Live Sync",
+            "lastSync": "2m ago"
+          },
+          {
+            "id": "2",
+            "name": "Jira Software",
+            "icon": "CheckSquare",
+            "connected": true,
+            "syncStatus": "Synced",
+            "lastSync": "10m ago"
+          },
+          {
+            "id": "3",
+            "name": "Linear App",
+            "icon": "GitPullRequest",
+            "connected": true,
+            "syncStatus": "Live Sync",
+            "lastSync": "Just now"
+          },
+          {
+            "id": "4",
+            "name": "Datadog APM",
+            "icon": "Activity",
+            "connected": true,
+            "syncStatus": "Healthy",
+            "lastSync": "1m ago"
+          }
+        ],
+        "createdAt": "2026-01-15T08:00:00.000Z",
+        "updatedAt": "2026-09-04T12:00:00.000Z"
+      },
+      "team": [
+        {
+          "id": "usr_1",
+          "name": "Alex Chen",
+          "email": "alex.chen@innovate.dev",
+          "role": "Staff Platform Engineer",
+          "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          "username": "alexchen-dev",
+          "bio": "Building resilient distributed consensus, zero-downtime cache meshes, and developer productivity tooling across hybrid multi-region clouds.",
+          "location": "San Francisco, CA",
+          "timezone": "UTC-7 (Pacific Time)",
+          "githubUsername": "alexchen-dev",
+          "githubUrl": "https://github.com/alexchen-dev",
+          "productivityScore": 94,
+          "activeStreak": 19,
+          "weeklyGoalHours": 35,
+          "currentGoalHours": 29.5,
+          "completedTasksCount": 42,
+          "openPRsCount": 3,
+          "mergedPRsCount": 28,
+          "focusStatus": "Deep Work on Cache Invalidation 🚀",
+          "skills": [
+            {
+              "name": "TypeScript / React 19",
+              "category": "languages",
+              "level": "Expert",
+              "mastery": 96,
+              "color": "#3178c6",
+              "linesWritten": "48.2k"
+            },
+            {
+              "name": "Distributed Go / gRPC",
+              "category": "languages",
+              "level": "Senior",
+              "mastery": 92,
+              "color": "#00add8",
+              "linesWritten": "62.4k"
+            },
+            {
+              "name": "Redis / Cache Mesh",
+              "category": "distributed",
+              "level": "Advanced",
+              "mastery": 88,
+              "color": "#dc2626",
+              "linesWritten": "18.9k"
+            },
+            {
+              "name": "Kafka / Event Streams",
+              "category": "distributed",
+              "level": "Advanced",
+              "mastery": 85,
+              "color": "#eab308",
+              "linesWritten": "24.1k"
+            },
+            {
+              "name": "Kubernetes & Docker",
+              "category": "cloud",
+              "level": "Senior",
+              "mastery": 90,
+              "color": "#326ce5",
+              "linesWritten": "31.5k"
+            },
+            {
+              "name": "Zero-Trust Architecture",
+              "category": "security",
+              "level": "Advanced",
+              "mastery": 86,
+              "color": "#10b981",
+              "linesWritten": "14.7k"
+            }
+          ],
+          "contributions": [
+            {
+              "id": "pr_142",
+              "prNumber": "PR #142",
+              "title": "Implement Redis Bloom filter for cache hit optimization",
+              "repo": "core-platform-engine",
+              "additions": 1420,
+              "deletions": 340,
+              "status": "merged",
+              "reviewTurnaround": "2.4 hrs",
+              "impact": "Saved 42ms p99 latency; eliminated 38% redundant DB lookups",
+              "mergedAt": "Yesterday",
+              "url": "https://github.com/dmetrics/core-platform-engine/pull/142"
+            }
+          ],
+          "integrations": [
+            {
+              "id": "1",
+              "name": "GitHub Enterprise",
+              "icon": "Github",
+              "connected": true,
+              "syncStatus": "Live Sync",
+              "lastSync": "2m ago"
+            },
+            {
+              "id": "2",
+              "name": "Jira Software",
+              "icon": "CheckSquare",
+              "connected": true,
+              "syncStatus": "Synced",
+              "lastSync": "10m ago"
+            },
+            {
+              "id": "3",
+              "name": "Linear App",
+              "icon": "GitPullRequest",
+              "connected": true,
+              "syncStatus": "Live Sync",
+              "lastSync": "Just now"
+            },
+            {
+              "id": "4",
+              "name": "Datadog APM",
+              "icon": "Activity",
+              "connected": true,
+              "syncStatus": "Healthy",
+              "lastSync": "1m ago"
+            }
+          ],
+          "createdAt": "2026-01-15T08:00:00.000Z",
+          "updatedAt": "2026-09-04T12:00:00.000Z"
+        },
+        {
+          "id": "usr_2",
+          "name": "Sarah Jenkins",
+          "email": "sarah.jenkins@innovate.dev",
+          "role": "Senior Frontend Architect",
+          "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+          "username": "sarah-j",
+          "bio": "Specializing in design systems, micro-frontends, and accessible real-time interactive user interfaces.",
+          "location": "Seattle, WA",
+          "timezone": "UTC-7 (Pacific Time)",
+          "githubUsername": "sarah-j",
+          "githubUrl": "https://github.com/sarah-j",
+          "productivityScore": 91,
+          "activeStreak": 14,
+          "weeklyGoalHours": 35,
+          "currentGoalHours": 31,
+          "completedTasksCount": 38,
+          "openPRsCount": 2,
+          "mergedPRsCount": 34,
+          "createdAt": "2026-01-20T09:30:00.000Z",
+          "updatedAt": "2026-09-03T16:20:00.000Z"
+        }
+      ],
+      "deadline": "2026-11-20",
+      "color": "#8b5cf6",
+      "leadId": "usr_1",
+      "teamIds": [
+        "usr_1",
+        "usr_2"
+      ],
+      "createdAt": "2026-09-16T14:47:05.083Z",
+      "updatedAt": "2026-09-16T14:47:05.087Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task_1",
+      "key": "CPE-104",
+      "title": "Implement Redis Bloom filter for cache hit optimization",
+      "description": "Reduce cache miss penalty on distributed lookups by executing probabilistic Bloom membership checks before DB roundtrip.",
+      "status": "in_progress",
+      "priority": "urgent",
+      "projectId": "proj_1",
+      "projectName": "Core Platform Engine",
+      "assigneeId": "usr_1",
+      "storyPoints": 5,
+      "dueDate": "2026-09-08",
+      "tags": [
+        "Backend",
+        "Redis",
+        "Performance"
+      ],
+      "createdAt": "2026-09-01T09:30:00.000Z",
+      "updatedAt": "2026-09-04T14:20:00.000Z"
+    },
+    {
+      "id": "task_2",
+      "key": "RAS-89",
+      "title": "Migrate WebSocket serializer to Protobuf binary streams",
+      "description": "Benchmark JSON vs Protobuf payload sizes across mobile bandwidth throttles; migrate telemetry packets.",
+      "status": "in_review",
+      "priority": "high",
+      "projectId": "proj_2",
+      "projectName": "Realtime Analytics SDK",
+      "assigneeId": "usr_2",
+      "storyPoints": 8,
+      "dueDate": "2026-09-09",
+      "tags": [
+        "WebSockets",
+        "Protobuf",
+        "Wasm"
+      ],
+      "createdAt": "2026-08-28T11:00:00.000Z",
+      "updatedAt": "2026-09-04T10:15:00.000Z"
+    },
+    {
+      "id": "task_3",
+      "key": "ZAG-52",
+      "title": "Audit token revocation endpoints against replay attacks",
+      "description": "Enforce asymmetric cryptographic nonce validation on JWT token refresh rotation.",
+      "status": "in_progress",
+      "priority": "urgent",
+      "projectId": "proj_3",
+      "projectName": "Zero-Trust Auth Gateway",
+      "assigneeId": "usr_5",
+      "storyPoints": 8,
+      "dueDate": "2026-09-07",
+      "tags": [
+        "Security",
+        "OAuth",
+        "Audit"
+      ],
+      "createdAt": "2026-09-02T08:00:00.000Z",
+      "updatedAt": "2026-09-04T16:45:00.000Z"
+    },
+    {
+      "id": "task_4",
+      "key": "ADS-112",
+      "title": "Build headless Combobox with keyboard navigation & ARIA live",
+      "description": "Ensure full screen-reader accessibility, multi-selection chips, and virtualized list viewport.",
+      "status": "done",
+      "priority": "medium",
+      "projectId": "proj_4",
+      "projectName": "Aurora Design System v2",
+      "assigneeId": "usr_2",
+      "storyPoints": 3,
+      "dueDate": "2026-09-04",
+      "tags": [
+        "UI/UX",
+        "Accessibility",
+        "React"
+      ],
+      "createdAt": "2026-08-30T13:10:00.000Z",
+      "updatedAt": "2026-09-04T12:00:00.000Z"
+    },
+    {
+      "id": "task_5",
+      "key": "CPE-108",
+      "title": "Configure OpenTelemetry distributed trace exporter on API gateway",
+      "description": "Setup W3C TraceContext propagation through edge proxy down into downstream cluster services.",
+      "status": "backlog",
+      "priority": "high",
+      "projectId": "proj_1",
+      "projectName": "Core Platform Engine",
+      "assigneeId": "usr_3",
+      "storyPoints": 5,
+      "dueDate": "2026-09-14",
+      "tags": [
+        "Observability",
+        "DevOps",
+        "Telemetry"
+      ],
+      "createdAt": "2026-09-03T10:00:00.000Z",
+      "updatedAt": "2026-09-03T10:00:00.000Z"
+    },
+    {
+      "id": "task_6",
+      "key": "ZAG-58",
+      "title": "Harden container orchestration with AppArmor security profiles",
+      "description": "Create seccomp filter profiles and AppArmor enforce modes on Kubernetes control-plane nodes.",
+      "status": "backlog",
+      "priority": "low",
+      "projectId": "proj_3",
+      "projectName": "Zero-Trust Auth Gateway",
+      "assigneeId": "usr_3",
+      "storyPoints": 2,
+      "dueDate": "2026-09-20",
+      "tags": [
+        "Security",
+        "DevOps",
+        "Containers"
+      ],
+      "createdAt": "2026-09-03T11:30:00.000Z",
+      "updatedAt": "2026-09-03T11:30:00.000Z"
+    },
+    {
+      "id": "task_7",
+      "key": "CPE-115",
+      "title": "Write property-based stress tests for multi-region Raft state machine",
+      "description": "Simulate split-brain network partitions with toxiproxy and verify consensus invariants.",
+      "status": "in_review",
+      "priority": "high",
+      "projectId": "proj_1",
+      "projectName": "Core Platform Engine",
+      "assigneeId": "usr_4",
+      "storyPoints": 5,
+      "dueDate": "2026-09-11",
+      "tags": [
+        "Distributed",
+        "Testing",
+        "Raft"
+      ],
+      "createdAt": "2026-09-02T14:15:00.000Z",
+      "updatedAt": "2026-09-04T09:20:00.000Z"
+    },
+    {
+      "id": "task_8",
+      "key": "RAS-94",
+      "title": "Zero-copy deserialization for WebAssembly worker thread pools",
+      "description": "Transfer SharedArrayBuffer memory directly into WebAssembly linear memory without serializing strings.",
+      "status": "done",
+      "priority": "urgent",
+      "projectId": "proj_2",
+      "projectName": "Realtime Analytics SDK",
+      "assigneeId": "usr_1",
+      "storyPoints": 8,
+      "dueDate": "2026-09-03",
+      "tags": [
+        "Wasm",
+        "Performance",
+        "Workers"
+      ],
+      "createdAt": "2026-08-25T15:00:00.000Z",
+      "updatedAt": "2026-09-03T18:00:00.000Z"
+    },
+    {
+      "id": "task_9",
+      "key": "DCM-12",
+      "title": "Consistent hashing ring with virtual nodes for partition balance",
+      "description": "Implement Maglev or Ketama consistent ring to prevent thundering herd when cache nodes reboot.",
+      "status": "in_progress",
+      "priority": "high",
+      "projectId": "proj_5",
+      "projectName": "Distributed Cache Mesh",
+      "assigneeId": "usr_1",
+      "storyPoints": 8,
+      "dueDate": "2026-09-15",
+      "tags": [
+        "Distributed",
+        "Algorithms",
+        "Go"
+      ],
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "updatedAt": "2026-09-04T11:00:00.000Z"
+    },
+    {
+      "id": "task_10",
+      "key": "DCM-19",
+      "title": "Gossip protocol failure detector with phi-accrual thresholds",
+      "description": "Accurately detect unresponsive cache nodes over unstable WAN connections without false positives.",
+      "status": "backlog",
+      "priority": "medium",
+      "projectId": "proj_5",
+      "projectName": "Distributed Cache Mesh",
+      "assigneeId": "usr_4",
+      "storyPoints": 5,
+      "dueDate": "2026-09-22",
+      "tags": [
+        "Distributed",
+        "Networking",
+        "Go"
+      ],
+      "createdAt": "2026-09-02T13:00:00.000Z",
+      "updatedAt": "2026-09-02T13:00:00.000Z"
+    },
+    {
+      "id": "task_11",
+      "key": "DXP-41",
+      "title": "Ephemeral Kubernetes preview environments for GitHub pull requests",
+      "description": "Automate namespace lifecycle, Helm values templating, and automated DNS routing on PR open/close.",
+      "status": "in_progress",
+      "priority": "urgent",
+      "projectId": "proj_6",
+      "projectName": "Developer Experience Platform",
+      "assigneeId": "usr_3",
+      "storyPoints": 8,
+      "dueDate": "2026-09-12",
+      "tags": [
+        "Kubernetes",
+        "CI/CD",
+        "GitOps"
+      ],
+      "createdAt": "2026-09-03T08:30:00.000Z",
+      "updatedAt": "2026-09-05T14:10:00.000Z"
+    },
+    {
+      "id": "task_12",
+      "key": "DXP-47",
+      "title": "CLI doctor command for local developer environment diagnostics",
+      "description": "Verify Docker daemon, Node/Go toolchains, minikube status, and local SSL root certificates.",
+      "status": "done",
+      "priority": "low",
+      "projectId": "proj_6",
+      "projectName": "Developer Experience Platform",
+      "assigneeId": "usr_5",
+      "storyPoints": 3,
+      "dueDate": "2026-09-05",
+      "tags": [
+        "CLI",
+        "DeveloperTools",
+        "Go"
+      ],
+      "createdAt": "2026-08-29T16:00:00.000Z",
+      "updatedAt": "2026-09-05T11:00:00.000Z"
+    },
+    {
+      "id": "task_13",
+      "key": "ADS-118",
+      "title": "Data visualization chart tokens with high-contrast palette",
+      "description": "Provide WCAG AAA accessible stroke contrasts, pattern hatching, and colorblind-safe palettes.",
+      "status": "in_review",
+      "priority": "medium",
+      "projectId": "proj_4",
+      "projectName": "Aurora Design System v2",
+      "assigneeId": "usr_2",
+      "storyPoints": 5,
+      "dueDate": "2026-09-10",
+      "tags": [
+        "DesignSystem",
+        "UI/UX",
+        "Charts"
+      ],
+      "createdAt": "2026-09-01T12:00:00.000Z",
+      "updatedAt": "2026-09-04T15:30:00.000Z"
+    },
+    {
+      "id": "task_14",
+      "key": "ZAG-64",
+      "title": "Hardware security key (FIDO2 / WebAuthn) passkey enrollment",
+      "description": "Support YubiKey and TouchID platform authenticators for second-factor hardware challenge.",
+      "status": "done",
+      "priority": "high",
+      "projectId": "proj_3",
+      "projectName": "Zero-Trust Auth Gateway",
+      "assigneeId": "usr_5",
+      "storyPoints": 5,
+      "dueDate": "2026-09-02",
+      "tags": [
+        "Security",
+        "WebAuthn",
+        "Passkeys"
+      ],
+      "createdAt": "2026-08-26T09:00:00.000Z",
+      "updatedAt": "2026-09-02T17:00:00.000Z"
+    },
+    {
+      "id": "task_15",
+      "key": "CPE-122",
+      "title": "gRPC stream backpressure mechanism with client-side buffer metrics",
+      "description": "Prevent downstream worker thread exhaustion by propagating HTTP/2 window update signals.",
+      "status": "in_progress",
+      "priority": "high",
+      "projectId": "proj_1",
+      "projectName": "Core Platform Engine",
+      "assigneeId": "usr_4",
+      "storyPoints": 5,
+      "dueDate": "2026-09-13",
+      "tags": [
+        "Backend",
+        "gRPC",
+        "Streams"
+      ],
+      "createdAt": "2026-09-02T11:00:00.000Z",
+      "updatedAt": "2026-09-05T09:30:00.000Z"
+    },
+    {
+      "id": "task_16",
+      "key": "RAS-99",
+      "title": "Automated memory leak regression tests in headless Chromium",
+      "description": "Capture heap snapshots before and after 100,000 WebSocket telemetry cycles in CI pipeline.",
+      "status": "backlog",
+      "priority": "medium",
+      "projectId": "proj_2",
+      "projectName": "Realtime Analytics SDK",
+      "assigneeId": "usr_2",
+      "storyPoints": 5,
+      "dueDate": "2026-09-19",
+      "tags": [
+        "Testing",
+        "Memory",
+        "Chromium"
+      ],
+      "createdAt": "2026-09-04T10:00:00.000Z",
+      "updatedAt": "2026-09-04T10:00:00.000Z"
+    },
+    {
+      "id": "task_1789570028248",
+      "key": "CPE-123",
+      "title": "Fix Redis Cache Connection Timeout",
+      "description": "Investigate connection pooling leak under simulated canary load",
+      "status": "todo",
+      "priority": "urgent",
+      "projectId": "proj_1",
+      "projectName": "Core Platform Engine",
+      "assigneeId": "usr_default",
+      "assignee": {
+        "id": "usr_default",
+        "name": "usr_default",
+        "email": "usr_default@dmetrics.io",
+        "role": "Developer",
+        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=usr_default"
+      },
+      "storyPoints": 5,
+      "dueDate": "2026-09-23",
+      "tags": [
+        "AI-Created",
+        "Copilot"
+      ],
+      "createdAt": "2026-09-16T14:47:08.249Z",
+      "updatedAt": "2026-09-16T14:47:08.249Z"
+    }
+  ],
+  "pullRequests": [
+    {
+      "id": "pr_1789570026263",
+      "number": 109,
+      "prNumber": "PR #109",
+      "title": "[CPE-104] Distributed Consensus Engine",
+      "repo": "innovate/core-engine",
+      "branch": "feat/cpe-104-consensus",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_1",
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "username": "alexchen-dev"
+      },
+      "reviewers": [
+        {
+          "id": "usr_3",
+          "name": "Marcus Vance",
+          "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+          "role": "DevOps & Cloud Specialist",
+          "username": "marcus-v",
+          "status": "pending"
+        },
+        {
+          "id": "usr_4",
+          "name": "Elena Rostova",
+          "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+          "role": "Backend Go Engineer",
+          "username": "elena-r",
+          "status": "pending"
+        }
+      ],
+      "projectId": "proj_1",
+      "projectType": "team",
+      "status": "open",
+      "checksStatus": "passed",
+      "ciStatus": "passing",
+      "additions": 120,
+      "deletions": 15,
+      "commentsCount": 0,
+      "filesChangedCount": 3,
+      "waitingHours": 0.5,
+      "slaStatus": "healthy",
+      "isReviewed": false,
+      "isMerged": false,
+      "queueType": "review_requested",
+      "diffSnippet": "+ // CI/CD verified changes\n+ export const feature = true;",
+      "aiInsights": {
+        "summary": "Automated CI/CD validation passed. Clean modular implementation with 100% test coverage.",
+        "performance": [
+          "Optimal memory footprint",
+          "Zero unnecessary re-renders"
+        ],
+        "security": [
+          "No sensitive tokens exposed",
+          "Strict type assertions"
+        ],
+        "testing": [
+          "Unit tests passed (100%)",
+          "Continuous integration checks green"
+        ]
+      },
+      "createdAt": "2026-09-16T14:47:06.263Z",
+      "updatedAt": "2026-09-16T14:47:06.263Z",
+      "turnaroundHours": 1.2
+    },
+    {
+      "id": "pr_proj_proj_1789570025083",
+      "number": 342,
+      "prNumber": "PR #342",
+      "title": "[QTM] Feature Architecture & CI/CD Pipeline Setup",
+      "repo": "dmetrics/qtm",
+      "branch": "feat/qtm-pipeline-arch",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_1",
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Platform Engineer",
+        "username": "alexchen-dev"
+      },
+      "reviewers": [
+        {
+          "id": "usr_2",
+          "name": "Sarah Jenkins",
+          "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+          "role": "Senior Frontend Architect",
+          "username": "sarah-j",
+          "status": "pending"
+        }
+      ],
+      "projectId": "proj_1789570025083",
+      "projectType": "team",
+      "status": "open",
+      "checksStatus": "passed",
+      "ciStatus": "passing",
+      "additions": 380,
+      "deletions": 18,
+      "commentsCount": 0,
+      "filesChangedCount": 3,
+      "waitingHours": 0.5,
+      "slaStatus": "healthy",
+      "isReviewed": false,
+      "isMerged": false,
+      "queueType": "review_requested",
+      "diffSnippet": "+ // CI/CD Setup for [QTM]: Quantum Telemetry Mesh\n+ export const projectKey = 'QTM';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;",
+      "aiInsights": {
+        "summary": "Continuous integration baseline and CI/CD workflow definition for Quantum Telemetry Mesh. Automated checks passing.",
+        "performance": [
+          "Zero latency regression",
+          "Optimal bundle budgets"
+        ],
+        "security": [
+          "No secret leaks detected",
+          "Strict type assertions"
+        ],
+        "testing": [
+          "Unit tests passed (100%)",
+          "Continuous integration green"
+        ]
+      },
+      "createdAt": "2026-09-16T14:47:05.084Z",
+      "updatedAt": "2026-09-16T14:47:05.084Z",
+      "turnaroundHours": 1.2
+    },
+    {
+      "id": "pr_proj_proj_6",
+      "number": 336,
+      "prNumber": "PR #336",
+      "title": "[DXP] Feature Architecture & CI/CD Pipeline Setup",
+      "repo": "innovate/dx-platform",
+      "branch": "feat/dxp-pipeline-arch",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_3",
+        "name": "Marcus Vance",
+        "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+        "role": "DevOps & Cloud Specialist",
+        "username": "marcus-v"
+      },
+      "reviewers": [],
+      "projectId": "proj_6",
+      "projectType": "individual",
+      "status": "open",
+      "checksStatus": "passed",
+      "ciStatus": "passing",
+      "additions": 380,
+      "deletions": 18,
+      "commentsCount": 1,
+      "filesChangedCount": 4,
+      "waitingHours": 1.2,
+      "slaStatus": "healthy",
+      "isReviewed": false,
+      "isMerged": false,
+      "queueType": "review_requested",
+      "diffSnippet": "+ // CI/CD Setup for [DXP]: Developer Experience Platform\n+ export const projectKey = 'DXP';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;",
+      "aiInsights": {
+        "summary": "Continuous integration baseline and CI/CD workflow definition for Developer Experience Platform. Automated checks passing.",
+        "performance": [
+          "Zero latency regression",
+          "Optimal bundle budgets"
+        ],
+        "security": [
+          "No secret leaks detected",
+          "Strict type assertions"
+        ],
+        "testing": [
+          "Unit tests passed (100%)",
+          "Continuous integration green"
+        ]
+      },
+      "createdAt": "2026-08-10T14:00:00.000Z",
+      "updatedAt": "2026-09-16T14:47:04.945Z",
+      "turnaroundHours": 1.5
+    },
+    {
+      "id": "pr_proj_proj_5",
+      "number": 312,
+      "prNumber": "PR #312",
+      "title": "[DCM] Feature Architecture & CI/CD Pipeline Setup",
+      "repo": "innovate/cache-mesh",
+      "branch": "feat/dcm-pipeline-arch",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_1",
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Platform Engineer",
+        "username": "alexchen-dev"
+      },
+      "reviewers": [
+        {
+          "id": "usr_4",
+          "name": "Elena Rostova",
+          "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+          "role": "Backend Go Engineer",
+          "username": "elena-r",
+          "status": "pending"
+        }
+      ],
+      "projectId": "proj_5",
+      "projectType": "team",
+      "status": "open",
+      "checksStatus": "passed",
+      "ciStatus": "passing",
+      "additions": 380,
+      "deletions": 18,
+      "commentsCount": 1,
+      "filesChangedCount": 4,
+      "waitingHours": 1.2,
+      "slaStatus": "healthy",
+      "isReviewed": false,
+      "isMerged": false,
+      "queueType": "review_requested",
+      "diffSnippet": "+ // CI/CD Setup for [DCM]: Distributed Cache Mesh\n+ export const projectKey = 'DCM';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;",
+      "aiInsights": {
+        "summary": "Continuous integration baseline and CI/CD workflow definition for Distributed Cache Mesh. Automated checks passing.",
+        "performance": [
+          "Zero latency regression",
+          "Optimal bundle budgets"
+        ],
+        "security": [
+          "No secret leaks detected",
+          "Strict type assertions"
+        ],
+        "testing": [
+          "Unit tests passed (100%)",
+          "Continuous integration green"
+        ]
+      },
+      "createdAt": "2026-08-01T11:00:00.000Z",
+      "updatedAt": "2026-09-16T14:47:04.945Z",
+      "turnaroundHours": 1.5
+    },
+    {
+      "id": "pr_proj_proj_4",
+      "number": 316,
+      "prNumber": "PR #316",
+      "title": "[ADS] Feature Architecture & CI/CD Pipeline Setup",
+      "repo": "innovate/aurora-ui",
+      "branch": "feat/ads-pipeline-arch",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_2",
+        "name": "Sarah Jenkins",
+        "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+        "role": "Senior Frontend Architect",
+        "username": "sarah-j"
+      },
+      "reviewers": [],
+      "projectId": "proj_4",
+      "projectType": "individual",
+      "status": "open",
+      "checksStatus": "passed",
+      "ciStatus": "passing",
+      "additions": 380,
+      "deletions": 18,
+      "commentsCount": 1,
+      "filesChangedCount": 4,
+      "waitingHours": 1.2,
+      "slaStatus": "healthy",
+      "isReviewed": false,
+      "isMerged": false,
+      "queueType": "review_requested",
+      "diffSnippet": "+ // CI/CD Setup for [ADS]: Aurora Design System v2\n+ export const projectKey = 'ADS';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;",
+      "aiInsights": {
+        "summary": "Continuous integration baseline and CI/CD workflow definition for Aurora Design System v2. Automated checks passing.",
+        "performance": [
+          "Zero latency regression",
+          "Optimal bundle budgets"
+        ],
+        "security": [
+          "No secret leaks detected",
+          "Strict type assertions"
+        ],
+        "testing": [
+          "Unit tests passed (100%)",
+          "Continuous integration green"
+        ]
+      },
+      "createdAt": "2026-07-15T08:30:00.000Z",
+      "updatedAt": "2026-09-16T14:47:04.944Z",
+      "turnaroundHours": 1.5
+    },
+    {
+      "id": "pr_1",
+      "prNumber": "PR #142",
+      "title": "Implement Redis Bloom filter for cache hit optimization",
+      "repo": "innovate/core-engine",
+      "branch": "feat/bloom-cache-opt",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_1",
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "username": "alexchen-dev"
+      },
+      "reviewers": [
+        {
+          "id": "usr_4",
+          "name": "Elena Rostova",
+          "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+          "status": "approved"
+        },
+        {
+          "id": "usr_5",
+          "name": "David Kim",
+          "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+          "status": "pending"
+        }
+      ],
+      "status": "merged",
+      "checksStatus": "passed",
+      "additions": 1420,
+      "deletions": 340,
+      "commentsCount": 11,
+      "createdAt": "2026-09-04T11:20:00Z",
+      "updatedAt": "2026-09-16T14:47:06.278Z",
+      "turnaroundHours": 291.5,
+      "isReviewed": true,
+      "slaStatus": "healthy",
+      "reviewedBy": {
+        "id": "usr_4",
+        "name": "Elena Rostova",
+        "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Reliability Engineer"
+      },
+      "comment": "Clean implementation, approved.",
+      "reviewerStatus": "approved",
+      "isMerged": true,
+      "queueType": "merged",
+      "waitingHours": 0,
+      "mergedBy": {
+        "id": "usr_1",
+        "name": "Mahendra Kumar",
+        "avatar": "https://github.com/Mahendra-06.png",
+        "role": "Backend Systems Engineer"
+      }
+    },
+    {
+      "id": "pr_2",
+      "prNumber": "PR #89",
+      "title": "Migrate WebSocket serializer to Protobuf binary streams",
+      "repo": "innovate/analytics-sdk",
+      "branch": "feat/protobuf-binary-streams",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_2",
+        "name": "Sarah Jenkins",
+        "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+        "username": "sarah-j"
+      },
+      "reviewers": [
+        {
+          "id": "usr_1",
+          "name": "Alex Chen",
+          "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          "status": "approved"
+        }
+      ],
+      "status": "open",
+      "checksStatus": "running",
+      "additions": 890,
+      "deletions": 412,
+      "commentsCount": 5,
+      "createdAt": "2026-09-05T09:00:00Z",
+      "updatedAt": "2026-09-06T11:00:00Z",
+      "turnaroundHours": 3.1
+    },
+    {
+      "id": "pr_3",
+      "prNumber": "PR #115",
+      "title": "Write property-based stress tests for multi-region Raft state machine",
+      "repo": "innovate/core-engine",
+      "branch": "test/raft-toxiproxy-split-brain",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_4",
+        "name": "Elena Rostova",
+        "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+        "username": "elena-r"
+      },
+      "reviewers": [
+        {
+          "id": "usr_1",
+          "name": "Alex Chen",
+          "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          "status": "pending"
+        },
+        {
+          "id": "usr_3",
+          "name": "Marcus Vance",
+          "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+          "status": "approved"
+        }
+      ],
+      "status": "open",
+      "checksStatus": "passed",
+      "additions": 640,
+      "deletions": 85,
+      "commentsCount": 3,
+      "createdAt": "2026-09-05T14:30:00Z",
+      "updatedAt": "2026-09-06T09:40:00Z",
+      "turnaroundHours": 1.8
+    },
+    {
+      "id": "pr_4",
+      "prNumber": "PR #64",
+      "title": "Hardware security key (FIDO2 / WebAuthn) passkey enrollment",
+      "repo": "innovate/auth-gateway",
+      "branch": "feat/webauthn-passkeys",
+      "targetBranch": "main",
+      "author": {
+        "id": "usr_5",
+        "name": "David Kim",
+        "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+        "username": "davidkim-io"
+      },
+      "reviewers": [
+        {
+          "id": "usr_1",
+          "name": "Alex Chen",
+          "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          "status": "approved"
+        },
+        {
+          "id": "usr_3",
+          "name": "Marcus Vance",
+          "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+          "status": "approved"
+        }
+      ],
+      "status": "merged",
+      "checksStatus": "passed",
+      "additions": 1120,
+      "deletions": 190,
+      "commentsCount": 12,
+      "createdAt": "2026-09-01T10:00:00Z",
+      "updatedAt": "2026-09-02T17:00:00Z",
+      "turnaroundHours": 4.2
+    }
+  ],
+  "deployments": [
+    {
+      "id": "dep_cd_1789570026278",
+      "environment": "production",
+      "serviceName": "core-engine",
+      "version": "v1.0.1",
+      "commitSha": "5c79b0f",
+      "commitMessage": "Merge PR #pr_1: Implement Redis Bloom filter for cache hit optimization",
+      "branch": "main",
+      "repositoryUrl": "https://github.com/innovate/core-engine",
+      "projectName": "Production",
+      "author": {
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "username": "alexchen-dev"
+      },
+      "status": "success",
+      "durationSeconds": 54,
+      "deployedAt": "Just now",
+      "url": "https://prod.dmetrics.internal",
+      "sloPassRate": 99.98,
+      "summary": "Continuous Deployment to Production triggered by merge of PR #pr_1 (99.9% SLO verified)"
+    },
+    {
+      "id": "dep_1",
+      "environment": "production",
+      "serviceName": "core-platform-engine",
+      "version": "v2.4.1",
+      "commitSha": "9a8f2b3",
+      "commitMessage": "feat: add Protobuf schema definitions for telemetry packets",
+      "author": {
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+      },
+      "status": "success",
+      "durationSeconds": 142,
+      "deployedAt": "24 mins ago",
+      "url": "https://api.innovate.dev",
+      "sloPassRate": 99.99
+    },
+    {
+      "id": "dep_2",
+      "environment": "canary",
+      "serviceName": "zero-trust-auth-gateway",
+      "version": "v1.18.0-rc2",
+      "commitSha": "1f4c8d9",
+      "commitMessage": "fix: cryptographic nonce validation on token rotation",
+      "author": {
+        "name": "David Kim",
+        "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80"
+      },
+      "status": "success",
+      "durationSeconds": 98,
+      "deployedAt": "1 hr ago",
+      "url": "https://canary-auth.innovate.dev",
+      "sloPassRate": 100
+    },
+    {
+      "id": "dep_3",
+      "environment": "staging",
+      "serviceName": "dx-platform-runner",
+      "version": "v0.9.4",
+      "commitSha": "7e2a3b1",
+      "commitMessage": "feat: ephemeral k8s namespace reaper routine",
+      "author": {
+        "name": "Marcus Vance",
+        "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+      },
+      "status": "building",
+      "durationSeconds": 45,
+      "deployedAt": "Just now",
+      "url": "https://staging-dx.innovate.dev",
+      "sloPassRate": 98.5
+    },
+    {
+      "id": "dep_4",
+      "environment": "production",
+      "serviceName": "aurora-ui-web",
+      "version": "v2.1.0",
+      "commitSha": "3c8e5f2",
+      "commitMessage": "release: Aurora Design System v2.1 accessible tokens",
+      "author": {
+        "name": "Sarah Jenkins",
+        "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80"
+      },
+      "status": "success",
+      "durationSeconds": 110,
+      "deployedAt": "3 hrs ago",
+      "url": "https://ui.innovate.dev",
+      "sloPassRate": 100
+    }
+  ],
+  "auditEvents": [
+    {
+      "id": "evt_pr_1789570026278",
+      "timestamp": "2026-09-16T14:47:06.278Z",
+      "relativeTime": "Just now",
+      "category": "prs",
+      "actor": {
+        "name": "Mahendra Kumar",
+        "avatar": "https://github.com/Mahendra-06.png",
+        "role": "Backend Systems Engineer"
+      },
+      "action": "merged pull request #PR #142 (reviewed by Elena Rostova) & deployed v1.0.1 to Production",
+      "target": "Implement Redis Bloom filter for cache hit optimization (feat/bloom-cache-opt → main)",
+      "metadata": "+1420 / -340 lines • Continuous Deployment to Production with 99.9% SLO verification",
+      "status": "success"
+    },
+    {
+      "id": "evt_pr_app_1789570026270",
+      "timestamp": "2026-09-16T14:47:06.270Z",
+      "relativeTime": "Just now",
+      "category": "prs",
+      "actor": {
+        "name": "Elena Rostova",
+        "avatar": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Reliability Engineer"
+      },
+      "action": "reviewed and approved PR #PR #142",
+      "target": "Implement Redis Bloom filter for cache hit optimization (innovate/core-engine)",
+      "metadata": "Turnaround: 291.5 hrs • Team turnaround updated",
+      "status": "success"
+    },
+    {
+      "id": "evt_pr_req_1789570026268",
+      "timestamp": "2026-09-16T14:47:06.268Z",
+      "relativeTime": "Just now",
+      "category": "prs",
+      "actor": {
+        "name": "Elena Rostova",
+        "avatar": "https://github.com/Mahendra-06.png",
+        "role": "Staff Reliability Engineer"
+      },
+      "action": "requested changes on PR #PR #142",
+      "target": "Implement Redis Bloom filter for cache hit optimization (innovate/core-engine)",
+      "metadata": "Please add unit tests for cache eviction boundary conditions.",
+      "status": "warning"
+    },
+    {
+      "id": "evt_pr_1789570026263",
+      "timestamp": "2026-09-16T14:47:06.263Z",
+      "relativeTime": "Just now",
+      "category": "prs",
+      "actor": {
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "role": "Engineer"
+      },
+      "action": "opened pull request #109",
+      "target": "[CPE-104] Distributed Consensus Engine (feat/cpe-104-consensus → main)",
+      "metadata": "Repo: innovate/core-engine • CI checks passing • Requires Peer Review",
+      "status": "success"
+    },
+    {
+      "id": "evt_1789570026250",
+      "timestamp": "2026-09-16T14:47:06.250Z",
+      "relativeTime": "Just now",
+      "action": "completed 25m deep work session",
+      "category": "system",
+      "target": "Productivity Rhythm (+0.4h Focus)",
+      "metadata": "Score: 95/100 • Weekly Goal: 35/40h",
+      "status": "success",
+      "actor": {
+        "name": "Mahendra Kumar",
+        "role": "Backend Systems Engineer",
+        "avatar": "https://github.com/Mahendra-06.png"
+      }
+    },
+    {
+      "id": "evt_pr_1789570025084",
+      "timestamp": "2026-09-16T14:47:05.084Z",
+      "relativeTime": "Just now",
+      "category": "prs",
+      "actor": {
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Platform Engineer"
+      },
+      "action": "opened pull request #342",
+      "target": "[QTM] Feature Architecture & CI/CD Pipeline Setup (feat/qtm-pipeline-arch → main)",
+      "metadata": "Repo: dmetrics/qtm • CI checks passing • Requires Peer Review",
+      "status": "success"
+    },
+    {
+      "id": "evt-101",
+      "category": "tasks",
+      "actor": {
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Platform Engineer"
+      },
+      "action": "moved task status to In Review",
+      "target": "CPE-104: Redis Bloom filter for cache hit optimization",
+      "timestamp": "2026-09-06T11:32:00Z",
+      "relativeTime": "2 mins ago",
+      "metadata": "Story Points: 5 • Assignee: Alex Chen",
+      "status": "info"
+    },
+    {
+      "id": "evt-102",
+      "category": "prs",
+      "actor": {
+        "name": "Sarah Jenkins",
+        "avatar": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+        "role": "Senior Frontend Architect"
+      },
+      "action": "approved and merged Pull Request #142",
+      "target": "PR #142: Zero-copy protobuf deserializer for streaming ingestion",
+      "timestamp": "2026-09-06T11:22:00Z",
+      "relativeTime": "12 mins ago",
+      "metadata": "Branch: feat/stream-proto → main • 4 files changed (+380/-42)",
+      "status": "success"
+    },
+    {
+      "id": "evt-103",
+      "category": "system",
+      "actor": {
+        "name": "MongoDB Daemon",
+        "avatar": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80",
+        "role": "Data Persistence Layer"
+      },
+      "action": "executed full replica synchronization",
+      "target": "dmetrics.tasks & dmetrics.projects collections",
+      "timestamp": "2026-09-06T11:10:00Z",
+      "relativeTime": "24 mins ago",
+      "metadata": "35/35 integrity checks verified • Latency: 1.8ms",
+      "status": "success"
+    },
+    {
+      "id": "evt-104",
+      "category": "deployments",
+      "actor": {
+        "name": "Marcus Vance",
+        "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+        "role": "DevOps Specialist"
+      },
+      "action": "deployed Canary build v2.4.1 to production cluster",
+      "target": "innovate-core-service-prod (us-central1)",
+      "timestamp": "2026-09-06T10:45:00Z",
+      "relativeTime": "49 mins ago",
+      "metadata": "HTTP 200 pass rate: 99.99% • Pods: 16 healthy",
+      "status": "success"
+    },
+    {
+      "id": "evt-105",
+      "category": "compliance",
+      "actor": {
+        "name": "Alex Chen",
+        "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+        "role": "Staff Platform Engineer"
+      },
+      "action": "generated production API key",
+      "target": "Key Scope: [tasks:write, projects:read, webhooks:dispatch]",
+      "timestamp": "2026-09-06T10:15:00Z",
+      "relativeTime": "1 hr ago",
+      "metadata": "Prefix: dmetrics_live_sec_*** • IP Binding: Enforced",
+      "status": "warning"
+    }
+  ]
+}

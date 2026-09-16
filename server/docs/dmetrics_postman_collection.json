@@ -1,0 +1,367 @@
+{
+  "info": {
+    "name": "DMetrics REST API Collection",
+    "description": "Comprehensive Postman collection covering all Users, Projects, Tasks, and Health endpoints for DMetrics Task 2.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Get Health Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Filter Users by Role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?role=Engineer",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "role", "value": "Engineer" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/current/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "current", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/usr_1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "usr_1"]
+            }
+          }
+        },
+        {
+          "name": "Create New User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jordan Rivera\",\n  \"email\": \"jordan.rivera@innovate.dev\",\n  \"role\": \"Cloud Infrastructure Architect\",\n  \"username\": \"jordan-r\",\n  \"bio\": \"Automating multi-cloud networks and IAM policy boundaries.\",\n  \"location\": \"San Francisco, CA\",\n  \"timezone\": \"UTC-7\",\n  \"githubUsername\": \"jordan-r\",\n  \"githubUrl\": \"https://github.com/jordan-r\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Senior Staff Engineer specializing in zero-trust mesh architectures.\",\n  \"weeklyGoalHours\": 40\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/usr_1",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "usr_1"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/usr_5",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "usr_5"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            }
+          }
+        },
+        {
+          "name": "Filter Projects by Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects?status=on_track",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"],
+              "query": [
+                { "key": "status", "value": "on_track" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Project by ID or Key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects/proj_1",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "proj_1"]
+            }
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vector Search Pipeline\",\n  \"key\": \"VSP\",\n  \"description\": \"Real-time semantic vector search engine using approximate nearest neighbors.\",\n  \"status\": \"on_track\",\n  \"repoUrl\": \"https://github.com/innovate/vector-search\",\n  \"leadId\": \"usr_1\",\n  \"teamIds\": [\"usr_1\", \"usr_2\"],\n  \"deadline\": \"2026-11-15\",\n  \"color\": \"#8b5cf6\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects"]
+            }
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"at_risk\",\n  \"description\": \"Core platform engine with updated streaming bandwidth metrics.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/projects/proj_1",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "proj_1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/projects/proj_4",
+              "host": ["{{baseUrl}}"],
+              "path": ["projects", "proj_4"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List All Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            }
+          }
+        },
+        {
+          "name": "Filter Tasks by Status & Priority",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks?status=in_progress&priority=urgent",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"],
+              "query": [
+                { "key": "status", "value": "in_progress" },
+                { "key": "priority", "value": "urgent" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks?search=Redis",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"],
+              "query": [
+                { "key": "search", "value": "Redis" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Task Summary Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/summary/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "summary", "metrics"]
+            }
+          }
+        },
+        {
+          "name": "Get Task by ID or Key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/task_1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "task_1"]
+            }
+          }
+        },
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Implement gRPC health-check and auto-reconnect backoff\",\n  \"description\": \"Prevent cascading connection drops during canary deployments.\",\n  \"status\": \"backlog\",\n  \"priority\": \"high\",\n  \"projectId\": \"proj_1\",\n  \"assigneeId\": \"usr_1\",\n  \"storyPoints\": 5,\n  \"dueDate\": \"2026-09-18\",\n  \"tags\": [\"gRPC\", \"Networking\", \"Canary\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            }
+          }
+        },
+        {
+          "name": "Update Task Status (Kanban Transition)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"done\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/task_1/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "task_1", "status"]
+            }
+          }
+        },
+        {
+          "name": "Update Task Details",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": \"urgent\",\n  \"storyPoints\": 8,\n  \"tags\": [\"Backend\", \"Redis\", \"Performance\", \"Critical\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/task_1",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "task_1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/task_6",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "task_6"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

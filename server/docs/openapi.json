@@ -1,0 +1,3094 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DMetrics Backend REST API",
+    "version": "1.0.0",
+    "description": "Production-grade REST API backend powering Users, Projects, and Tasks for the DMetrics Developer Productivity & Engineering Velocity Platform.",
+    "contact": {
+      "name": "DMetrics Engineering Team",
+      "email": "engineering@dmetrics.dev"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Local Development Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "System health and diagnostics"
+    },
+    {
+      "name": "Auth",
+      "description": "JWT authentication, token issuance, and role-based access control (RBAC)"
+    },
+    {
+      "name": "Users",
+      "description": "Developer profile and team user management"
+    },
+    {
+      "name": "Projects",
+      "description": "Project workspace creation, tracking, and progress metrics"
+    },
+    {
+      "name": "Tasks",
+      "description": "Task lifecycle, board filtering, and status transition management"
+    },
+    {
+      "name": "Pull Requests",
+      "description": "PR review queues, SLA tracking, code inspection approvals, and merge workflows"
+    },
+    {
+      "name": "Deployments",
+      "description": "CI/CD deployment monitoring, release tracking, and pipeline telemetry"
+    },
+    {
+      "name": "Audit",
+      "description": "Real-time workspace activity audit log stream and compliance tracking"
+    },
+    {
+      "name": "Analytics",
+      "description": "Sprint velocity, category allocation, and telemetry insights"
+    },
+    {
+      "name": "AI",
+      "description": "Gemini AI task decomposition, acceptance criteria generation, and PR code reviews"
+    },
+    {
+      "name": "GitHub",
+      "description": "GitHub repository telemetry sync, commit ingestion, and board generation"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Authenticate user & issue JWT token",
+        "description": "Validates email or username and password, returning an active Bearer JWT token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "login",
+                  "password"
+                ],
+                "properties": {
+                  "login": {
+                    "type": "string",
+                    "example": "alex.chen@innovate.dev",
+                    "description": "Email or username"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful, returns user object and signed JWT Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication successful"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsIn..."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register new developer profile & obtain JWT token",
+        "description": "Registers a new user on the platform with bcrypt password hashing and returns an initial JWT Bearer token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email",
+                  "username",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Jordan Lee"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "jordan.lee@innovate.dev"
+                  },
+                  "username": {
+                    "type": "string",
+                    "example": "jordan-lee"
+                  },
+                  "role": {
+                    "type": "string",
+                    "example": "Senior DevOps Engineer"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created and authenticated with JWT token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 201
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "token": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get active authenticated user (Requires Bearer JWT)",
+        "description": "Decodes Bearer JWT token from Authorization header and returns the current user profile.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authenticated user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/verify-lead": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Role-Based Access Control (RBAC) Verification",
+        "description": "Demonstrates role-based authorization: Returns 200 for Staff / Lead / Architect / Principal roles, 403 Forbidden for Junior/Standard roles, and 401 if unauthenticated.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User is authorized with elevated engineering privileges",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authorized with elevated engineering privileges"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "authorized": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check & Diagnostic Telemetry",
+        "description": "Returns uptime, memory usage, environment, and operational status of the service.",
+        "responses": {
+          "200": {
+            "description": "Service is healthy and fully operational",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List all users",
+        "description": "Retrieve team members with optional search by name/email/username or filter by role.",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search text matching name, email, or username",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "description": "Filter by job role substring",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of user profiles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a new user",
+        "description": "Registers a new user profile with input validation against duplicate emails and usernames.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "URI to the newly created user"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          }
+        }
+      }
+    },
+    "/users/current/profile": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get authenticated user profile",
+        "description": "Returns the active logged-in user profile (Alex Chen) including skills, contributions, and integrations.",
+        "responses": {
+          "200": {
+            "description": "Current user profile data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get user by ID",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Full update of user",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Partial update of user",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete user",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "User deleted successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List projects",
+        "description": "Returns projects with dynamic progress calculations and populated lead & team user details.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter status: on_track, at_risk, delayed, all",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "on_track",
+                "at_risk",
+                "delayed",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search by project name or key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Create project",
+        "description": "Creates a new engineering project. Validates key uniqueness and verifies leadId existence.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created successfully",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "URI to the newly created project"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          }
+        }
+      }
+    },
+    "/projects/{id}": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Get project by ID or key",
+        "description": "Finds a project by its unique ID (e.g. `proj_1`) or project key (e.g. `CPE`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Full update of project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/409Conflict"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Partial update of project",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete project",
+        "description": "Deletes project and cascades deletion to associated project tasks. Requires Staff, Lead, or Architect privileges.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Project deleted successfully"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "List tasks with multi-field filtering & sorting",
+        "description": "Query tasks filtered by status, priority, projectId, assigneeId, or text search, with sorting and pagination.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Task status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "backlog",
+                "in_progress",
+                "in_review",
+                "done",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "description": "Task priority",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "urgent",
+                "all"
+              ]
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "description": "Filter by project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assigneeId",
+            "in": "query",
+            "description": "Filter by assignee user ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search keyword matching title, description, key, tags, or assignee",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Field to sort by",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "priority",
+                "dueDate",
+                "storyPoints",
+                "createdAt",
+                "updatedAt",
+                "title"
+              ]
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "description": "Sort direction",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (1-indexed)",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page item limit",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Create new task",
+        "description": "Creates task, assigns unique task key (e.g. `CPE-119`), validates project and assignee existence.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created successfully",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "URI to the newly created task"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          }
+        }
+      }
+    },
+    "/tasks/summary/metrics": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Summary counts and metrics",
+        "description": "Aggregates overall task distribution across statuses and project health metrics for dashboard widgets.",
+        "responses": {
+          "200": {
+            "description": "Summary metrics counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "get": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Get task by ID or key",
+        "description": "Retrieve task by task ID (e.g. `task_1`) or task key (e.g. `CPE-104`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Full update of task",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Partial update of task",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Delete task",
+        "description": "Deletes a task by ID or key. Requires authentication.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Task deleted successfully"
+          },
+          "401": {
+            "$ref": "#/components/responses/401Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/tasks/{id}/status": {
+      "patch": {
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Manage task status (Kanban column transition)",
+        "description": "Dedicated endpoint to transition task status between 'backlog', 'in_progress', 'in_review', and 'done'.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaskStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Task status transitioned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/prs": {
+      "get": {
+        "tags": [
+          "Pull Requests"
+        ],
+        "summary": "List all active pull requests with SLA status",
+        "description": "Returns open and active PRs across monitored repositories with review status, additions, and deletions.",
+        "responses": {
+          "200": {
+            "description": "List of pull requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PullRequest"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prs/{id}": {
+      "patch": {
+        "tags": [
+          "Pull Requests"
+        ],
+        "summary": "Update pull request review status",
+        "description": "Submits review decisions (approved, changes requested) and comments on a PR.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePRRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pull request updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PullRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/prs/{id}/merge": {
+      "post": {
+        "tags": [
+          "Pull Requests"
+        ],
+        "summary": "Merge pull request",
+        "description": "Marks the PR as merged, updates user merged stats, and logs an audit trail event.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/idParam"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actor": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "avatar": {
+                        "type": "string"
+                      },
+                      "role": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PR merged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PullRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404NotFound"
+          }
+        }
+      }
+    },
+    "/deployments": {
+      "get": {
+        "tags": [
+          "Deployments"
+        ],
+        "summary": "List CI/CD deployment runs",
+        "description": "Returns historical deployment pipeline runs with SLO pass rates, duration, and status.",
+        "responses": {
+          "200": {
+            "description": "List of deployments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Deployment"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Deployments"
+        ],
+        "summary": "Record a new deployment run",
+        "description": "Ingests a new CI/CD deployment execution, recalculates pipeline health, and logs an audit activity.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeploymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deployment run recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 201
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Deployment"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          }
+        }
+      }
+    },
+    "/audit": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Get activity audit trail",
+        "description": "Fetches recent workspace actions, compliance events, and developer contributions.",
+        "responses": {
+          "200": {
+            "description": "List of audit activity events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AuditEvent"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Log an audit event",
+        "description": "Records an operational or governance event in the central immutable audit stream.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAuditRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Audit event recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 201
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AuditEvent"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400BadRequest"
+          }
+        }
+      }
+    },
+    "/analytics": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Get developer productivity & velocity telemetry",
+        "description": "Returns sprint velocity history, work category breakdown, and daily activity heatmaps.",
+        "responses": {
+          "200": {
+            "description": "Analytics telemetry data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AnalyticsResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/task-breakdown": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "AI-assisted task refinement & breakdown",
+        "description": "Leverages Gemini AI to decompose high-level titles into refined stories, story points, acceptance criteria, and subtasks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "Implement payment checkout flow"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Integrate Stripe and handle webhooks"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decomposed task specification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "refinedTitle": {
+                          "type": "string"
+                        },
+                        "refinedDescription": {
+                          "type": "string"
+                        },
+                        "storyPoints": {
+                          "type": "integer"
+                        },
+                        "subtasks": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "acceptanceCriteria": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/pr-review": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "AI-powered PR diff code review",
+        "description": "Scans git diffs for security vulnerabilities, memory leaks, performance bottlenecks, and test gaps.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prNumber",
+                  "title"
+                ],
+                "properties": {
+                  "prNumber": {
+                    "type": "integer",
+                    "example": 142
+                  },
+                  "title": {
+                    "type": "string",
+                    "example": "feat: Add redis caching layer"
+                  },
+                  "diffSnippet": {
+                    "type": "string",
+                    "example": "+ const client = redis.createClient();"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Automated code audit report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "summary": {
+                          "type": "string"
+                        },
+                        "performance": {
+                          "type": "string"
+                        },
+                        "security": {
+                          "type": "string"
+                        },
+                        "testing": {
+                          "type": "string"
+                        },
+                        "recommendation": {
+                          "type": "string",
+                          "enum": [
+                            "APPROVE",
+                            "REQUEST_CHANGES",
+                            "COMMENT"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/github/sync-repo": {
+      "post": {
+        "tags": [
+          "GitHub"
+        ],
+        "summary": "Sync GitHub repository telemetry",
+        "description": "Imports commits, issues, PRs, and contributors from GitHub into workspace projects and tasks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "repoUrl"
+                ],
+                "properties": {
+                  "repoUrl": {
+                    "type": "string",
+                    "example": "https://github.com/Mahendra-06/Portfolio-Generator"
+                  },
+                  "projectId": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  },
+                  "leadId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository synced successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "idParam": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Unique identifier or alphanumeric entity key",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "400BadRequest": {
+        "description": "Validation failure or malformed request payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "statusCode": 400,
+              "error": "ValidationError",
+              "message": "Validation failed for request data",
+              "errors": [
+                {
+                  "field": "status",
+                  "message": "Status must be one of: 'backlog', 'in_progress', 'in_review', 'done'"
+                }
+              ],
+              "timestamp": "2026-09-06T07:00:00.000Z",
+              "path": "/api/tasks/task_1/status"
+            }
+          }
+        }
+      },
+      "404NotFound": {
+        "description": "Requested resource does not exist",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "statusCode": 404,
+              "error": "ApiError",
+              "message": "Task with ID 'task_999' not found",
+              "timestamp": "2026-09-06T07:00:00.000Z",
+              "path": "/api/tasks/task_999"
+            }
+          }
+        }
+      },
+      "409Conflict": {
+        "description": "Unique constraint violation (e.g. duplicate key or email)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "statusCode": 409,
+              "error": "ConflictError",
+              "message": "User with email 'alex.chen@innovate.dev' already exists",
+              "timestamp": "2026-09-06T07:00:00.000Z",
+              "path": "/api/users"
+            }
+          }
+        }
+      },
+      "401Unauthorized": {
+        "description": "Unauthorized: Bearer token is missing, invalid, or expired",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "statusCode": 401,
+              "error": "UnauthorizedError",
+              "message": "Authentication required: Access token is missing or malformed",
+              "timestamp": "2026-09-06T07:00:00.000Z",
+              "path": "/api/auth/me"
+            }
+          }
+        }
+      },
+      "403Forbidden": {
+        "description": "Forbidden: User role lacks sufficient engineering privileges (RBAC)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "statusCode": 403,
+              "error": "ForbiddenError",
+              "message": "Forbidden: Role 'Junior Frontend Developer' lacks sufficient privileges. Required roles: Staff, Lead, Admin, Architect, Principal",
+              "timestamp": "2026-09-06T07:00:00.000Z",
+              "path": "/api/auth/verify-lead"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "ValidationError"
+          },
+          "message": {
+            "type": "string",
+            "example": "Validation failed for request data"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "usr_1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Alex Chen"
+          },
+          "email": {
+            "type": "string",
+            "example": "alex.chen@innovate.dev"
+          },
+          "role": {
+            "type": "string",
+            "example": "Staff Platform Engineer"
+          },
+          "username": {
+            "type": "string",
+            "example": "alexchen-dev"
+          },
+          "avatar": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "githubUsername": {
+            "type": "string"
+          },
+          "githubUrl": {
+            "type": "string"
+          },
+          "productivityScore": {
+            "type": "number",
+            "example": 94
+          },
+          "activeStreak": {
+            "type": "number",
+            "example": 19
+          },
+          "completedTasksCount": {
+            "type": "number",
+            "example": 42
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "role",
+          "username"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Elena Rostova"
+          },
+          "email": {
+            "type": "string",
+            "example": "elena.rostova@innovate.dev"
+          },
+          "role": {
+            "type": "string",
+            "example": "Backend Go Engineer"
+          },
+          "username": {
+            "type": "string",
+            "example": "elena-r"
+          },
+          "avatar": {
+            "type": "string",
+            "example": "https://images.unsplash.com/photo-1517841905240-472988babdf9"
+          },
+          "bio": {
+            "type": "string",
+            "example": "Designing high-concurrency microservices."
+          },
+          "location": {
+            "type": "string",
+            "example": "New York, NY"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "UTC-4"
+          },
+          "githubUsername": {
+            "type": "string",
+            "example": "elena-r"
+          },
+          "githubUrl": {
+            "type": "string",
+            "example": "https://github.com/elena-r"
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatar": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "githubUsername": {
+            "type": "string"
+          },
+          "githubUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "example": 5
+              }
+            }
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "proj_1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Core Platform Engine"
+          },
+          "key": {
+            "type": "string",
+            "example": "CPE"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "on_track",
+              "at_risk",
+              "delayed"
+            ],
+            "example": "on_track"
+          },
+          "progress": {
+            "type": "number",
+            "example": 78
+          },
+          "totalTasks": {
+            "type": "number",
+            "example": 28
+          },
+          "completedTasks": {
+            "type": "number",
+            "example": 22
+          },
+          "repoUrl": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string",
+            "example": "usr_1"
+          },
+          "lead": {
+            "$ref": "#/components/schemas/User"
+          },
+          "team": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "deadline": {
+            "type": "string",
+            "example": "2026-09-25"
+          },
+          "color": {
+            "type": "string",
+            "example": "#6366f1"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateProjectRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "key",
+          "description",
+          "leadId",
+          "deadline"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Realtime Analytics SDK"
+          },
+          "key": {
+            "type": "string",
+            "example": "RAS"
+          },
+          "description": {
+            "type": "string",
+            "example": "Ultra low-latency client telemetry pipeline."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "on_track",
+              "at_risk",
+              "delayed"
+            ],
+            "default": "on_track"
+          },
+          "repoUrl": {
+            "type": "string",
+            "example": "https://github.com/innovate/analytics-sdk"
+          },
+          "leadId": {
+            "type": "string",
+            "example": "usr_2"
+          },
+          "teamIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "usr_2",
+              "usr_1"
+            ]
+          },
+          "deadline": {
+            "type": "string",
+            "example": "2026-10-10"
+          },
+          "color": {
+            "type": "string",
+            "example": "#06b6d4"
+          }
+        }
+      },
+      "UpdateProjectRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "on_track",
+              "at_risk",
+              "delayed"
+            ]
+          },
+          "repoUrl": {
+            "type": "string"
+          },
+          "leadId": {
+            "type": "string"
+          },
+          "teamIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deadline": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Project"
+          }
+        }
+      },
+      "ProjectListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "example": 4
+              }
+            }
+          }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "task_1"
+          },
+          "key": {
+            "type": "string",
+            "example": "CPE-104"
+          },
+          "title": {
+            "type": "string",
+            "example": "Implement Redis Bloom filter for cache hit optimization"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "backlog",
+              "in_progress",
+              "in_review",
+              "done"
+            ],
+            "example": "in_progress"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ],
+            "example": "urgent"
+          },
+          "projectId": {
+            "type": "string",
+            "example": "proj_1"
+          },
+          "projectName": {
+            "type": "string",
+            "example": "Core Platform Engine"
+          },
+          "assigneeId": {
+            "type": "string",
+            "example": "usr_1"
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/User"
+          },
+          "storyPoints": {
+            "type": "number",
+            "example": 5
+          },
+          "dueDate": {
+            "type": "string",
+            "example": "2026-09-08"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Backend",
+              "Redis"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateTaskRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "projectId",
+          "assigneeId",
+          "dueDate"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Implement Redis Bloom filter for cache hit optimization"
+          },
+          "description": {
+            "type": "string",
+            "example": "Execute probabilistic Bloom membership checks before DB roundtrip."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "backlog",
+              "in_progress",
+              "in_review",
+              "done"
+            ],
+            "default": "backlog"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ],
+            "default": "medium"
+          },
+          "projectId": {
+            "type": "string",
+            "example": "proj_1"
+          },
+          "assigneeId": {
+            "type": "string",
+            "example": "usr_1"
+          },
+          "storyPoints": {
+            "type": "integer",
+            "default": 3,
+            "example": 5
+          },
+          "dueDate": {
+            "type": "string",
+            "example": "2026-09-08"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Backend",
+              "Redis"
+            ]
+          }
+        }
+      },
+      "UpdateTaskRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "backlog",
+              "in_progress",
+              "in_review",
+              "done"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ]
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "assigneeId": {
+            "type": "string"
+          },
+          "storyPoints": {
+            "type": "integer"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateTaskStatusRequest": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "backlog",
+              "in_progress",
+              "in_review",
+              "done"
+            ],
+            "example": "in_progress",
+            "description": "New status for the task"
+          }
+        }
+      },
+      "TaskResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Task"
+          }
+        }
+      },
+      "TaskListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "example": 8
+              },
+              "page": {
+                "type": "integer",
+                "example": 1
+              },
+              "limit": {
+                "type": "integer",
+                "example": 50
+              },
+              "totalPages": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          }
+        }
+      },
+      "MetricsResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "tasks": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "example": 8
+                  },
+                  "backlog": {
+                    "type": "integer",
+                    "example": 2
+                  },
+                  "inProgress": {
+                    "type": "integer",
+                    "example": 2
+                  },
+                  "inReview": {
+                    "type": "integer",
+                    "example": 2
+                  },
+                  "done": {
+                    "type": "integer",
+                    "example": 2
+                  }
+                }
+              },
+              "projects": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "example": 4
+                  },
+                  "onTrack": {
+                    "type": "integer",
+                    "example": 3
+                  },
+                  "atRisk": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "delayed": {
+                    "type": "integer",
+                    "example": 0
+                  }
+                }
+              },
+              "users": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "example": 5
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "statusCode": {
+            "type": "integer",
+            "example": 200
+          },
+          "message": {
+            "type": "string",
+            "example": "API is operational and healthy"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "example": "healthy"
+              },
+              "service": {
+                "type": "string",
+                "example": "dmetrics-backend"
+              },
+              "timestamp": {
+                "type": "string"
+              },
+              "uptimeSeconds": {
+                "type": "integer"
+              },
+              "environment": {
+                "type": "string",
+                "example": "development"
+              },
+              "nodeVersion": {
+                "type": "string",
+                "example": "v25.0.0"
+              }
+            }
+          }
+        }
+      },
+      "PullRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "pr_1"
+          },
+          "prNumber": {
+            "type": "integer",
+            "example": 142
+          },
+          "title": {
+            "type": "string",
+            "example": "feat: Realtime WebSocket telemetry stream"
+          },
+          "repo": {
+            "type": "string",
+            "example": "dmetrics-core"
+          },
+          "branch": {
+            "type": "string",
+            "example": "feat/telemetry-ws"
+          },
+          "targetBranch": {
+            "type": "string",
+            "example": "main"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "merged",
+              "closed"
+            ]
+          },
+          "slaStatus": {
+            "type": "string",
+            "enum": [
+              "on_track",
+              "warning",
+              "breached"
+            ]
+          },
+          "isReviewed": {
+            "type": "boolean"
+          },
+          "reviewerStatus": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "changes_requested",
+              "pending"
+            ]
+          },
+          "additions": {
+            "type": "integer"
+          },
+          "deletions": {
+            "type": "integer"
+          },
+          "commentsCount": {
+            "type": "integer"
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "avatar": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "UpdatePRRequest": {
+        "type": "object",
+        "properties": {
+          "isReviewed": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "merged",
+              "closed"
+            ]
+          },
+          "reviewerStatus": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "changes_requested",
+              "pending"
+            ]
+          },
+          "comment": {
+            "type": "string"
+          }
+        }
+      },
+      "Deployment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "dep_1"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "staging",
+              "canary"
+            ]
+          },
+          "serviceName": {
+            "type": "string",
+            "example": "api-gateway"
+          },
+          "version": {
+            "type": "string",
+            "example": "v2.14.0"
+          },
+          "commitSha": {
+            "type": "string",
+            "example": "7f8b92c"
+          },
+          "commitMessage": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "building",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "durationSeconds": {
+            "type": "integer"
+          },
+          "deployedAt": {
+            "type": "string"
+          },
+          "sloPassRate": {
+            "type": "number",
+            "example": 99.94
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "avatar": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CreateDeploymentRequest": {
+        "type": "object",
+        "required": [
+          "serviceName",
+          "version",
+          "commitSha",
+          "commitMessage"
+        ],
+        "properties": {
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "staging",
+              "canary"
+            ],
+            "default": "production"
+          },
+          "serviceName": {
+            "type": "string",
+            "example": "api-gateway"
+          },
+          "version": {
+            "type": "string",
+            "example": "v2.15.0"
+          },
+          "commitSha": {
+            "type": "string",
+            "example": "8a9b12c"
+          },
+          "commitMessage": {
+            "type": "string",
+            "example": "chore: Update security headers"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "building",
+              "failed",
+              "cancelled"
+            ],
+            "default": "success"
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "default": 45
+          },
+          "sloPassRate": {
+            "type": "number",
+            "default": 100
+          }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "audit_1"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "tasks",
+              "prs",
+              "deployments",
+              "system",
+              "compliance"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "example": "Merged Pull Request"
+          },
+          "target": {
+            "type": "string",
+            "example": "PR #142 into main"
+          },
+          "metadata": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "warning",
+              "info"
+            ]
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "relativeTime": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string"
+              },
+              "avatar": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CreateAuditRequest": {
+        "type": "object",
+        "required": [
+          "action",
+          "target"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "tasks",
+              "prs",
+              "deployments",
+              "system",
+              "compliance"
+            ],
+            "default": "system"
+          },
+          "action": {
+            "type": "string",
+            "example": "Completed Deep Work Session"
+          },
+          "target": {
+            "type": "string",
+            "example": "Focus Timer: 45 min"
+          },
+          "metadata": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "warning",
+              "info"
+            ],
+            "default": "success"
+          }
+        }
+      },
+      "AnalyticsResponse": {
+        "type": "object",
+        "properties": {
+          "sprintVelocity": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sprint": {
+                  "type": "string"
+                },
+                "committed": {
+                  "type": "integer"
+                },
+                "completed": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "workCategories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "percentage": {
+                  "type": "integer"
+                },
+                "color": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "activityDays": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter JWT Bearer token obtained from /api/auth/login or /api/auth/register"
+      }
+    }
+  }
+}
