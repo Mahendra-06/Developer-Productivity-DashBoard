@@ -69,6 +69,7 @@ export interface IDatabase {
     description: string;
     leadId: string;
     teamIds?: string[];
+    projectType?: 'team' | 'individual';
     deadline: string;
     color?: string;
     status?: ProjectStatus;
@@ -980,7 +981,10 @@ export class LocalPersistentDatabase implements IDatabase {
     tags?: string[];
   }): Promise<Task> {
     const id = `task_${Date.now()}`;
-    const project = await this.getProjectById(taskData.projectId);
+    // Internal task creation must resolve private personal projects as well as
+    // team projects. Public project listings intentionally apply visibility
+    // rules, so use the backing store here instead of the filtered accessor.
+    const project = this.projects.find(project => project.id === taskData.projectId);
     const projectKey = project ? project.key : 'TASK';
 
     const projectTasks = this.tasks.filter(t => t.projectId === taskData.projectId);

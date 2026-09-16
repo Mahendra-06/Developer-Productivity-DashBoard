@@ -77,14 +77,6 @@ export class TaskController {
     try {
       const { projectId, assigneeId } = req.body;
 
-      // Validate project existence
-      const project = await db.getProjectById(projectId);
-      if (!project) {
-        throw ApiError.badRequest(`Project with ID '${projectId}' does not exist`, [
-          { field: 'projectId', message: 'Assigned project must be a valid project ID' },
-        ]);
-      }
-
       // Validate assignee existence
       const assignee = await db.getUserById(assigneeId);
       if (!assignee) {
@@ -93,7 +85,33 @@ export class TaskController {
         ]);
       }
 
-      const newTask = await db.createTask(req.body);
+      let project = projectId ? await db.getProjectById(projectId) : null;
+      if (projectId && !project) {
+        throw ApiError.badRequest(`Project with ID '${projectId}' does not exist`, [
+          { field: 'projectId', message: 'Assigned project must be a valid project ID' },
+        ]);
+      }
+
+      // A task can be created before the user has created a project. In that
+      // case, create (or reuse) a private personal project automatically.
+      if (!project) {
+        const personalKey = `PERSONAL-${assignee.id.replace(/[^a-z0-9]/gi, '').slice(-8).toUpperCase()}`;
+        project = await db.getProjectByKey(personalKey);
+        if (!project) {
+          project = await db.createProject({
+            name: `${assignee.name}'s Personal Tasks`,
+            key: personalKey,
+            description: 'Automatically created workspace for tasks without a selected project.',
+            leadId: assignee.id,
+            teamIds: [assignee.id],
+            projectType: 'individual',
+            deadline: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            color: '#6366f1',
+          });
+        }
+      }
+
+      const newTask = await db.createTask({ ...req.body, projectId: project.id, assigneeId });
       SocketService.emitEvent('taskCreated', newTask);
       ResponseHelper.created(res, newTask, 'Task created successfully', `/api/tasks/${newTask.id}`);
     } catch (error) {

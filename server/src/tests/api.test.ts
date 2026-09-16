@@ -340,6 +340,23 @@ async function runTests() {
       createdTaskId = body.data.id;
     });
 
+    await testCase('POST /tasks creates a personal project when projectId is omitted', async () => {
+      const res = await fetch(`${BASE_URL}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Capture unplanned engineering work',
+          description: 'A task created before any project is selected in the dashboard.',
+          assigneeId: 'usr_1',
+          dueDate: '2026-09-30',
+          tags: ['Personal'],
+        }),
+      });
+      assert(res.status === 201, `Expected 201, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.data.projectName.includes('Personal Tasks'), 'Expected an automatically created personal project');
+    });
+
     // 6. Task Status Transition Management
     await testCase('PATCH /tasks/:id/status rejects invalid status with 400', async () => {
       const res = await fetch(`${BASE_URL}/tasks/${createdTaskId}/status`, {

@@ -15,7 +15,7 @@ export const TaskModal: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [projectId, setProjectId] = useState(projects[0]?.id || 'proj_1');
+  const [projectId, setProjectId] = useState(projects[0]?.id || '');
   const [status, setStatus] = useState<TaskStatus>('backlog');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [assigneeId, setAssigneeId] = useState(preselectedAssigneeId || user?.id || teamMembers[0]?.id || 'usr_1');
@@ -26,6 +26,7 @@ export const TaskModal: React.FC = () => {
   const [error, setError] = useState('');
 
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAiBreakdown = async () => {
     if (!title.trim()) {
@@ -79,7 +80,7 @@ export const TaskModal: React.FC = () => {
       // Defaults for new task
       setTitle('');
       setDescription('');
-      setProjectId(projects[0]?.id || 'proj_1');
+      setProjectId(projects[0]?.id || '');
       setStatus('in_progress');
       setPriority('high');
       setAssigneeId(preselectedAssigneeId || user?.id || teamMembers[0]?.id || 'usr_1');
@@ -109,14 +110,14 @@ export const TaskModal: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
       setError('Please provide a task summary title.');
       return;
     }
 
-    const selectedProject = projects.find((p) => p.id === projectId) || projects[0];
+    const selectedProject = projects.find((p) => p.id === projectId);
     const targetAssigneeId = preselectedAssigneeId || assigneeId;
     let selectedAssignee = teamMembers.find((m) => 
       (targetAssigneeId && m.id === targetAssigneeId) || 
@@ -140,35 +141,45 @@ export const TaskModal: React.FC = () => {
       selectedAssignee = editingTask ? editingTask.assignee : (teamMembers.find(m => m.id === user?.id) || teamMembers[0]);
     }
 
-    if (editingTask) {
-      updateTask(editingTask.id, {
-        title: title.trim(),
-        description: description.trim(),
-        projectId: selectedProject.id,
-        projectName: selectedProject.name,
-        status,
-        priority,
-        assignee: selectedAssignee,
-        storyPoints: Number(storyPoints),
-        dueDate,
-        tags: selectedTags.length > 0 ? selectedTags : ['Feature']
-      });
-    } else {
-      addTask({
-        title: title.trim(),
-        description: description.trim() || 'No description provided.',
-        projectId: selectedProject.id,
-        projectName: selectedProject.name,
-        status,
-        priority,
-        assignee: selectedAssignee,
-        storyPoints: Number(storyPoints),
-        dueDate,
-        tags: selectedTags.length > 0 ? selectedTags : ['Feature']
-      });
+    if (!selectedAssignee) {
+      setError('Unable to identify an assignee. Please refresh the page and sign in again.');
+      return;
     }
 
-    closeTaskModal();
+    setIsSubmitting(true);
+
+    try {
+      if (editingTask) {
+        await updateTask(editingTask.id, {
+          title: title.trim(),
+          description: description.trim(),
+          projectId: selectedProject?.id || editingTask.projectId,
+          projectName: selectedProject?.name || editingTask.projectName,
+          status,
+          priority,
+          assignee: selectedAssignee,
+          storyPoints: Number(storyPoints),
+          dueDate,
+          tags: selectedTags.length > 0 ? selectedTags : ['Feature']
+        });
+      } else {
+        await addTask({
+          title: title.trim(),
+          description: description.trim() || 'No description provided.',
+          projectId: selectedProject?.id || '',
+          projectName: selectedProject?.name || 'Personal Tasks',
+          status,
+          priority,
+          assignee: selectedAssignee,
+          storyPoints: Number(storyPoints),
+          dueDate,
+          tags: selectedTags.length > 0 ? selectedTags : ['Feature']
+        });
+      }
+      closeTaskModal();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -236,6 +247,7 @@ export const TaskModal: React.FC = () => {
             onChange={(e) => setProjectId(e.target.value)}
             className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
+            <option value="">Personal task (project created automatically)</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} ({p.key})
@@ -345,7 +357,7 @@ export const TaskModal: React.FC = () => {
           <Button variant="outline" size="sm" type="button" onClick={closeTaskModal}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" type="submit">
+          <Button variant="primary" size="sm" type="submit" isLoading={isSubmitting}>
             {editingTask ? 'Save Changes' : 'Create Task'}
           </Button>
         </div>

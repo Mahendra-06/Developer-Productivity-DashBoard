@@ -208,7 +208,8 @@ export const createTaskSchema = z.object({
   description: z.string().trim().min(3, 'Description must be at least 3 characters').max(3000, 'Description cannot exceed 3000 characters'),
   status: TaskStatusEnum.default('backlog'),
   priority: TaskPriorityEnum.default('medium'),
-  projectId: z.string().trim().min(1, 'Project ID is required'),
+  // Project-less tasks are assigned to an automatically created personal project.
+  projectId: z.string().trim().min(1, 'Project ID must not be empty').optional(),
   assigneeId: z.string().trim().min(1, 'Assignee ID is required'),
   assignerId: z.string().trim().optional(),
   storyPoints: z.coerce.number().int('Story points must be an integer').min(0, 'Story points cannot be negative').max(100, 'Story points cannot exceed 100').default(3),
