@@ -64,7 +64,15 @@ export class AuthController {
       });
 
       // Dispatch verification email
-      await EmailService.sendVerificationOtp(newUser.email, otp, newUser.name);
+      try {
+        await EmailService.sendVerificationOtp(newUser.email, otp, newUser.name);
+      } catch (error) {
+        console.error('[Auth] Failed to send registration OTP:', error);
+        throw new ApiError(
+          503,
+          'Email service is temporarily unavailable. Please try again later.'
+        );
+      }
 
       const { passwordHash: _, emailOtpHash: __, ...sanitizedUser } = newUser;
 
@@ -128,7 +136,15 @@ export class AuthController {
             emailOtpAttempts: 0,
             emailOtpLastSentAt,
           });
-          await EmailService.sendVerificationOtp(user.email, otp, user.name);
+          try {
+            await EmailService.sendVerificationOtp(user.email, otp, user.name);
+          } catch (error) {
+            console.error('[Auth] Failed to resend OTP:', error);
+            throw new ApiError(
+              503,
+              'Email service is temporarily unavailable. Please try again later.'
+            );
+          }
         }
 
         const { passwordHash: _, emailOtpHash: __, ...sanitizedUser } = user;
@@ -271,7 +287,15 @@ export class AuthController {
         emailOtpLastSentAt,
       });
 
-      await EmailService.sendVerificationOtp(user.email, otp, user.name);
+      try {
+        await EmailService.sendVerificationOtp(user.email, otp, user.name);
+      } catch (error) {
+        console.error('[Auth] Failed to send login OTP:', error);
+        throw new ApiError(
+          503,
+          'Email service is temporarily unavailable. Please try again later.'
+        );
+      }
 
       ResponseHelper.success(res, { cooldownSeconds: 60 }, genericSuccessMessage);
     } catch (error) {
