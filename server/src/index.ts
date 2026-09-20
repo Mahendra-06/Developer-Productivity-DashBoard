@@ -1,7 +1,11 @@
+import dns from 'node:dns';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { SocketService } from './services/socketService.js';
 import { connectMongo, disconnectMongo } from './config/mongo.js';
+
+// Prioritize IPv4 over IPv6 to resolve ENETUNREACH errors on cloud hosting (e.g., Render)
+dns.setDefaultResultOrder('ipv4first');
 
 async function startServer() {
   // Connect to MongoDB if MONGODB_URI is provided
