@@ -1,4 +1,4 @@
-import { Task, Project, UserProfile, TaskStatus } from '../types';
+import { Task, Project, UserProfile, TaskStatus, ProjectDetails, TeamInvitation } from '../types';
 
 // In development, Vite proxies /api to the local backend. In production this
 // points at the separately deployed API service (for example, Render).
@@ -102,6 +102,7 @@ export const api = {
   },
 
   getProjectById: (id: string) => request<Project>(`/projects/${id}`),
+  getProjectDetails: (id: string) => request<ProjectDetails>(`/projects/${encodeURIComponent(id)}/details`),
 
   createProject: (projectData: any) =>
     request<Project>('/projects', {
@@ -115,7 +116,7 @@ export const api = {
       body: JSON.stringify(updates),
     }),
 
-  // Users
+  // Users & Team
   getUsers: (filters?: { search?: string; role?: string; scope?: string }) => {
     const params = new URLSearchParams();
     if (filters) {
@@ -143,13 +144,40 @@ export const api = {
     projectId?: string;
     password?: string;
   }) =>
-    request<{ user: any; isExisting: boolean }>('/users/invite', {
+    request<{ user: any; isExisting: boolean; invitation?: TeamInvitation }>('/users/invite', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
   removeTeamMember: (memberId: string) =>
-    request<{ success: boolean; message: string }>(`/users/team/${memberId}`, {
+    request<{ success: boolean; message: string }>(`/team/members/${memberId}`, {
       method: 'DELETE',
+    }),
+  getTeamInvitations: (filters?: { status?: string; projectId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.projectId) params.append('projectId', filters.projectId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return request<TeamInvitation[]>(`/team/invitations${query}`);
+  },
+  createTeamInvitation: (data: {
+    email: string;
+    name?: string;
+    role?: string;
+    username?: string;
+    githubUsername?: string;
+    projectId?: string;
+  }) =>
+    request<TeamInvitation>('/team/invitations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  acceptTeamInvitation: (id: string) =>
+    request<TeamInvitation>(`/team/invitations/${id}/accept`, {
+      method: 'POST',
+    }),
+  revokeTeamInvitation: (id: string) =>
+    request<{ success: boolean }>(`/team/invitations/${id}/revoke`, {
+      method: 'POST',
     }),
 
   // AI Assistant (using OpenAI backend service)
@@ -372,7 +400,7 @@ export const api = {
 
   // Auth
   register: async (userData: any) => {
-    const res = await request<{ user: UserProfile; token: string }>('/auth/register', {
+    const res = await request<{ user: UserProfile; token?: string; requiresEmailVerification?: boolean; email?: string }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -383,7 +411,7 @@ export const api = {
   },
 
   login: async (credentials: { login: string; password: string }) => {
-    const res = await request<{ user: UserProfile; token: string }>('/auth/login', {
+    const res = await request<{ user?: UserProfile; token?: string; requiresEmailVerification?: boolean; email?: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -391,6 +419,24 @@ export const api = {
       localStorage.setItem('dmetrics_token', res.token);
     }
     return res;
+  },
+
+  verifyEmailOtp: async (data: { email: string; otp: string }) => {
+    const res = await request<{ user: UserProfile; token: string }>('/auth/verify-email-otp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res.token) {
+      localStorage.setItem('dmetrics_token', res.token);
+    }
+    return res;
+  },
+
+  resendEmailOtp: async (email: string) => {
+    return request<{ message?: string; cooldownSeconds?: number }>('/auth/resend-email-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
   },
 
   getMe: () => request<UserProfile>('/auth/me'),

@@ -39,7 +39,7 @@ export const SkillMatrixCard: React.FC = () => {
       level: newSkillMastery >= 90 ? 'Expert' : newSkillMastery >= 80 ? 'Senior' : 'Advanced',
       mastery: newSkillMastery,
       color: colors[newSkillCategory] || '#6366f1',
-      linesWritten: '5.0k'
+      linesWritten: '0k'
     };
 
     updateUser({

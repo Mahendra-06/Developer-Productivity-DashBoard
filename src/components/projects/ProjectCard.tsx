@@ -23,7 +23,7 @@ interface ProjectCardProps {
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelectProject }) => {
-  const { tasks, syncGithubRepository, updateFilter, setViewMode } = useDashboard();
+  const { tasks, syncGithubRepository, updateFilter, setViewMode, openProjectDetails } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedContributor, setSelectedContributor] = useState<Assignee | null>(null);
 
@@ -38,12 +38,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelectProje
     }
   };
 
-  const handleScopeProject = () => {
-    updateFilter('projectId', project.id);
+  const handleCardClick = () => {
+    openProjectDetails(project);
     if (onSelectProject) {
       onSelectProject(project.id);
-    } else {
-      setViewMode('kanban');
     }
   };
 
@@ -56,7 +54,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelectProje
   return (
     <>
       <div 
-        onClick={handleScopeProject}
+        onClick={handleCardClick}
         className="p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/80 hover:border-brand-500/40 dark:hover:border-brand-500/40 transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between group cursor-pointer"
       >
         <div>
@@ -125,13 +123,13 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSelectProje
               t.projectName?.toLowerCase() === project.name?.toLowerCase() || 
               (project.key && t.key?.toUpperCase().startsWith(project.key.toUpperCase()))
             );
-            const effectiveTotal = projectTasks.length > 0 ? projectTasks.length : (project.totalTasks > 0 ? project.totalTasks : 5);
+            const effectiveTotal = projectTasks.length > 0 ? projectTasks.length : (project.totalTasks || 0);
             const effectiveCompleted = projectTasks.length > 0 
               ? projectTasks.filter((t: any) => t.status === 'done').length 
-              : (project.completedTasks > 0 ? project.completedTasks : 3);
+              : (project.completedTasks || 0);
             const effectiveProgress = effectiveTotal > 0 
               ? Math.round((effectiveCompleted / effectiveTotal) * 100) 
-              : (project.progress || 60);
+              : (project.progress || 0);
 
             return (
               <div className="space-y-1.5 mb-4">

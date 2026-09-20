@@ -57,7 +57,18 @@ export const ActivePairingRooms: React.FC<ActivePairingRoomsProps> = ({
       </div>
 
       {/* Room Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+      {pairingRooms.length === 0 ? (
+        <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/20 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+          <Radio className="w-8 h-8 mx-auto text-slate-400 mb-2 opacity-50" />
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            No active pairing rooms in progress
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Click "Start New Room" above to open a live pair programming huddle with branch sync.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
         {pairingRooms.map((room) => (
           <div
             key={room.id}
@@ -117,7 +128,8 @@ export const ActivePairingRooms: React.FC<ActivePairingRoomsProps> = ({
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

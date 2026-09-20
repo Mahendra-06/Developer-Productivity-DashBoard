@@ -53,7 +53,7 @@ export const CategoryBreakdown: React.FC = () => {
     let devopsPoints = 0;
 
     for (const t of tasks) {
-      const pts = t.storyPoints || 3;
+      const pts = t.storyPoints || 1;
       const allText = `${t.title} ${t.tags?.join(' ') || ''}`.toLowerCase();
       if (allText.includes('frontend') || allText.includes('ui') || allText.includes('ux') || allText.includes('css')) {
         frontPoints += pts;

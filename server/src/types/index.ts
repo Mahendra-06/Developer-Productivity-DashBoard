@@ -43,6 +43,11 @@ export interface User {
   avatar: string;
   username: string;
   passwordHash?: string;
+  isEmailVerified?: boolean;
+  emailOtpHash?: string | null;
+  emailOtpExpiresAt?: string | null;
+  emailOtpAttempts?: number;
+  emailOtpLastSentAt?: string | null;
   bio?: string;
   location?: string;
   timezone?: string;
@@ -269,4 +274,23 @@ export interface PRMetricsSummary {
     atRisk: number;
     breached: number;
   };
+}
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+export interface TeamInvitation {
+  id: string;
+  inviterId: string;
+  inviteeEmail: string;
+  inviteeName?: string;
+  inviteeUsername?: string;
+  role?: string;
+  githubUsername?: string;
+  projectId?: string;
+  status: InvitationStatus;
+  tokenHash?: string;
+  expiresAt: string;
+  acceptedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }

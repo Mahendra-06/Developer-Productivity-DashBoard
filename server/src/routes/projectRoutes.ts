@@ -19,6 +19,13 @@ router.get(
 );
 
 router.get(
+  '/:id/details',
+  optionalAuth,
+  validate({ params: idParamSchema }),
+  ProjectController.getProjectDetails
+);
+
+router.get(
   '/:id',
   optionalAuth,
   validate({ params: idParamSchema }),

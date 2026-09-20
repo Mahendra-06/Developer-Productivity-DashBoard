@@ -26,7 +26,7 @@ export const PRVelocityMetrics: React.FC = () => {
     : (analytics?.metricsSummary?.avgReviewTurnaroundHours != null && analytics.metricsSummary.avgReviewTurnaroundHours > 0)
     ? analytics.metricsSummary.avgReviewTurnaroundHours.toFixed(1)
     : null;
-  const avgTurnaround = avgTurnaroundVal ? `${avgTurnaroundVal} hrs` : (prs.length > 0 ? '1.2 hrs' : '--');
+  const avgTurnaround = avgTurnaroundVal ? `${avgTurnaroundVal} hrs` : '--';
 
   // Derive dynamic reviewers strictly from real PRs or genuine team members
   const reviewerMap: Record<string, { name: string; avatar: string; count: number }> = {};

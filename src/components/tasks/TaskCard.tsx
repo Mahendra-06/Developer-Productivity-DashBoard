@@ -39,13 +39,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
     if (project && project.lead && !isSameUser(project.lead, task.assignee)) {
       displayAssigner = project.lead;
     } else {
-      displayAssigner = teamMembers.find(m => !isSameUser(m, task.assignee)) || {
-        id: 'usr_1',
-        name: 'Alex Chen',
-        username: 'alexchen-dev',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        role: 'Staff Platform Engineer'
-      };
+      displayAssigner = teamMembers.find(m => !isSameUser(m, task.assignee)) || undefined;
     }
   }
 

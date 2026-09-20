@@ -1,11 +1,13 @@
 import bcrypt from 'bcryptjs';
-import { User, Project, Task, TaskStatus, TaskPriority, ProjectStatus } from '../types/index.js';
+import { User, Project, Task, TaskStatus, TaskPriority, ProjectStatus, TeamInvitation, InvitationStatus } from '../types/index.js';
 import { UserModel } from '../models/UserModel.js';
 import { ProjectModel } from '../models/ProjectModel.js';
 import { TaskModel } from '../models/TaskModel.js';
 import { PullRequestModel } from '../models/PullRequestModel.js';
 import { DeploymentModel } from '../models/DeploymentModel.js';
 import { AuditActivityModel } from '../models/AuditActivityModel.js';
+import { TeamInvitationModel } from '../models/TeamInvitationModel.js';
+import { ApiError } from '../utils/ApiError.js';
 import { initialUsers, initialProjects, initialTasks, initialPullRequests, initialDeployments, initialAuditEvents } from './seedData.js';
 
 export class MongoDatabase {
@@ -13,10 +15,8 @@ export class MongoDatabase {
     try {
       const userCount = await UserModel.countDocuments();
       if (userCount === 0) {
-        console.log('🌱 MongoDB database empty. Seeding initial collections...');
+        console.log('🌱 MongoDB database empty. Initializing collections...');
         await this.resetData();
-      } else {
-        await this.ensureProjectPRsSync();
       }
     } catch (e) {
       console.warn('MongoDB seed check notice:', (e as Error).message);
@@ -38,6 +38,7 @@ export class MongoDatabase {
       PullRequestModel.deleteMany({}),
       DeploymentModel.deleteMany({}),
       AuditActivityModel.deleteMany({}),
+      TeamInvitationModel.deleteMany({}),
     ]);
 
     // 1. Seed Users
@@ -196,6 +197,11 @@ export class MongoDatabase {
     avatar?: string;
     username: string;
     passwordHash?: string;
+    isEmailVerified?: boolean;
+    emailOtpHash?: string | null;
+    emailOtpExpiresAt?: string | null;
+    emailOtpAttempts?: number;
+    emailOtpLastSentAt?: string | null;
     bio?: string;
     location?: string;
     timezone?: string;
@@ -208,6 +214,11 @@ export class MongoDatabase {
     const newUser = new UserModel({
       ...userData,
       id,
+      isEmailVerified: userData.isEmailVerified !== undefined ? userData.isEmailVerified : false,
+      emailOtpHash: userData.emailOtpHash || null,
+      emailOtpExpiresAt: userData.emailOtpExpiresAt || null,
+      emailOtpAttempts: userData.emailOtpAttempts || 0,
+      emailOtpLastSentAt: userData.emailOtpLastSentAt || null,
       invitedBy: userData.invitedBy || '',
       avatar: userData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.username}`,
       githubUsername: userData.githubUsername || '',
@@ -250,14 +261,14 @@ export class MongoDatabase {
   }
 
   public async inviteTeamMember(inviterId: string, memberData: {
-    name: string;
+    name?: string;
     email: string;
-    role: string;
+    role?: string;
     username?: string;
     githubUsername?: string;
     projectId?: string;
     password?: string;
-  }): Promise<{ user: User; isExisting: boolean }> {
+  }): Promise<{ user: User; isExisting: boolean; invitation?: TeamInvitation }> {
     const cleanEmail = memberData.email.trim().toLowerCase();
     const cleanGithub = memberData.githubUsername
       ? memberData.githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/$/, '')
@@ -266,64 +277,33 @@ export class MongoDatabase {
       ? memberData.username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_')
       : cleanEmail.split('@')[0].replace(/[^a-z0-9_-]/g, '_');
 
-    let existingUser = await UserModel.findOne({
+    let targetUser = await UserModel.findOne({
       $or: [{ email: cleanEmail }, { username: cleanUsername }]
     });
 
-    let targetUser: any;
-    let isExisting = false;
-
-    if (existingUser) {
-      isExisting = true;
-      targetUser = existingUser;
-
-      if (!Array.isArray(targetUser.teamMemberIds)) targetUser.teamMemberIds = [];
-      if (!targetUser.teamMemberIds.includes(inviterId)) {
-        targetUser.teamMemberIds.push(inviterId);
-      }
-      if (!targetUser.invitedBy) {
-        targetUser.invitedBy = inviterId;
-      }
-      await targetUser.save();
-    } else {
-      isExisting = false;
-      const id = `usr_${Date.now()}`;
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(memberData.password || 'password123', salt);
-
-      const newUser = new UserModel({
-        id,
-        name: memberData.name.trim(),
-        email: cleanEmail,
-        role: memberData.role,
-        username: cleanUsername,
-        avatar: cleanGithub ? `https://github.com/${cleanGithub}.png` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
-        githubUsername: cleanGithub,
-        githubUrl: cleanGithub ? `https://github.com/${cleanGithub}` : '',
-        invitedBy: inviterId,
-        teamMemberIds: [inviterId],
-        passwordHash,
-        productivityScore: 0,
-        activeStreak: 0,
-        weeklyGoalHours: 40,
-        currentGoalHours: 0,
-        completedTasksCount: 0,
-        openPRsCount: 0,
-        mergedPRsCount: 0,
-        focusStatus: 'Ready ⚡',
-        skills: [],
-        contributions: [],
-        integrations: cleanGithub ? [
-          { id: 'github', name: 'GitHub Profile', icon: 'github', connected: true, syncStatus: 'Linked', lastSync: 'Just now' }
-        ] : [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      targetUser = await newUser.save();
+    if (!targetUser) {
+      throw ApiError.notFound('This user must create an account before they can be invited.');
     }
 
-    // Bidirectional link: add targetUser.id to inviter's teamMemberIds
+    if (targetUser.id === inviterId) {
+      throw ApiError.badRequest('You cannot invite yourself to your own team.');
+    }
+
     const inviter = await UserModel.findOne({ id: inviterId });
+    if (inviter && Array.isArray(inviter.teamMemberIds) && inviter.teamMemberIds.includes(targetUser.id)) {
+      throw ApiError.badRequest('This user is already a member of your team.');
+    }
+
+    if (!Array.isArray(targetUser.teamMemberIds)) targetUser.teamMemberIds = [];
+    if (!targetUser.teamMemberIds.includes(inviterId)) {
+      targetUser.teamMemberIds.push(inviterId);
+    }
+    if (!targetUser.invitedBy) {
+      targetUser.invitedBy = inviterId;
+    }
+    await targetUser.save();
+
+    // Bidirectional link: add targetUser.id to inviter's teamMemberIds
     if (inviter) {
       if (!Array.isArray(inviter.teamMemberIds)) inviter.teamMemberIds = [];
       if (!inviter.teamMemberIds.includes(targetUser.id)) {
@@ -344,6 +324,17 @@ export class MongoDatabase {
       }
     }
 
+    const invitation = await this.createTeamInvitation({
+      inviterId,
+      inviteeEmail: cleanEmail,
+      inviteeName: targetUser.name || (memberData.name ? memberData.name.trim() : targetUser.name),
+      inviteeUsername: targetUser.username || cleanUsername,
+      role: memberData.role || targetUser.role,
+      githubUsername: targetUser.githubUsername || cleanGithub,
+      projectId: memberData.projectId,
+      status: 'accepted',
+    });
+
     // Log to AuditActivityModel
     try {
       await AuditActivityModel.create({
@@ -362,7 +353,7 @@ export class MongoDatabase {
       });
     } catch (e) { /* ignore */ }
 
-    return { user: this.mapUser(targetUser.toObject ? targetUser.toObject() : targetUser), isExisting };
+    return { user: this.mapUser(targetUser.toObject ? targetUser.toObject() : targetUser), isExisting, invitation };
   }
 
   public async removeTeamMember(removerId: string, memberId: string): Promise<boolean> {
@@ -404,10 +395,23 @@ export class MongoDatabase {
       { $pull: { teamIds: removerId } }
     );
 
-    // 6. Log audit activity
+    // 6. Update invitations between them to revoked
+    const targetUser = await UserModel.findOne({ id: memberId }).lean();
+    const remover = await UserModel.findOne({ id: removerId }).lean();
+    if (targetUser && remover) {
+      await TeamInvitationModel.updateMany(
+        {
+          $or: [
+            { inviterId: removerId, $or: [{ inviteeEmail: targetUser.email }, { inviteeUsername: targetUser.username }] },
+            { inviterId: memberId, $or: [{ inviteeEmail: remover.email }, { inviteeUsername: remover.username }] },
+          ],
+        },
+        { $set: { status: 'revoked', updatedAt: new Date().toISOString() } }
+      );
+    }
+
+    // 7. Log audit activity
     try {
-      const remover = await UserModel.findOne({ id: removerId }).lean();
-      const targetUser = await UserModel.findOne({ id: memberId }).lean();
       if (remover && targetUser) {
         await AuditActivityModel.create({
           id: `evt_remove_${Date.now()}`,
@@ -426,6 +430,158 @@ export class MongoDatabase {
       }
     } catch (e) { /* ignore */ }
 
+    return true;
+  }
+
+  public async createTeamInvitation(invitationData: {
+    inviterId: string;
+    inviteeEmail: string;
+    inviteeName?: string;
+    inviteeUsername?: string;
+    role?: string;
+    githubUsername?: string;
+    projectId?: string;
+    status?: InvitationStatus;
+    tokenHash?: string;
+    expiresAt?: string;
+  }): Promise<TeamInvitation> {
+    const id = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const now = new Date();
+    const expires = invitationData.expiresAt || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const status = invitationData.status || 'pending';
+
+    const newInvitation = new TeamInvitationModel({
+      id,
+      inviterId: invitationData.inviterId,
+      inviteeEmail: invitationData.inviteeEmail.trim().toLowerCase(),
+      inviteeName: invitationData.inviteeName?.trim(),
+      inviteeUsername: invitationData.inviteeUsername?.trim().toLowerCase(),
+      role: invitationData.role || 'Frontend Engineer',
+      githubUsername: invitationData.githubUsername?.trim(),
+      projectId: invitationData.projectId,
+      status,
+      tokenHash: invitationData.tokenHash,
+      expiresAt: expires,
+      acceptedAt: status === 'accepted' ? now.toISOString() : undefined,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
+
+    const saved = await newInvitation.save();
+    return this.mapTeamInvitation(saved.toObject ? saved.toObject() : saved);
+  }
+
+  public async getTeamInvitations(filters?: { userId?: string; email?: string; status?: string; projectId?: string }): Promise<TeamInvitation[]> {
+    const query: any = {};
+
+    if (filters?.userId) {
+      const user = await UserModel.findOne({ id: filters.userId }).lean();
+      const userEmail = user ? user.email.toLowerCase() : '';
+      query.$or = [
+        { inviterId: filters.userId },
+        ...(userEmail ? [{ inviteeEmail: new RegExp(`^${userEmail}$`, 'i') }] : []),
+      ];
+    }
+
+    if (filters?.email) {
+      query.inviteeEmail = new RegExp(`^${filters.email}$`, 'i');
+    }
+
+    if (filters?.status) {
+      query.status = filters.status;
+    }
+
+    if (filters?.projectId) {
+      query.projectId = filters.projectId;
+    }
+
+    const docs = await TeamInvitationModel.find(query).sort({ createdAt: -1 }).lean();
+    const now = new Date();
+    const results: TeamInvitation[] = [];
+
+    for (const doc of docs) {
+      const mapped = this.mapTeamInvitation(doc);
+      if (mapped.status === 'pending' && new Date(mapped.expiresAt) < now) {
+        mapped.status = 'expired';
+        mapped.updatedAt = now.toISOString();
+        await TeamInvitationModel.updateOne({ id: mapped.id }, { $set: { status: 'expired', updatedAt: now.toISOString() } });
+      }
+      results.push(mapped);
+    }
+
+    return results;
+  }
+
+  public async getTeamInvitationById(id: string): Promise<TeamInvitation | null> {
+    if (!id) return null;
+    const doc = await TeamInvitationModel.findOne({ id }).lean();
+    return doc ? this.mapTeamInvitation(doc) : null;
+  }
+
+  public async acceptTeamInvitation(invitationId: string, acceptingUserId: string): Promise<TeamInvitation | null> {
+    const invitation = await TeamInvitationModel.findOne({ id: invitationId });
+    if (!invitation || invitation.status !== 'pending') {
+      return null;
+    }
+
+    const now = new Date();
+    if (new Date(invitation.expiresAt) < now) {
+      invitation.status = 'expired';
+      invitation.updatedAt = now.toISOString();
+      await invitation.save();
+      return null;
+    }
+
+    const acceptingUser = await UserModel.findOne({ id: acceptingUserId });
+    const inviterUser = await UserModel.findOne({ id: invitation.inviterId });
+
+    if (acceptingUser && inviterUser) {
+      if (!Array.isArray(acceptingUser.teamMemberIds)) acceptingUser.teamMemberIds = [];
+      if (!acceptingUser.teamMemberIds.includes(inviterUser.id)) {
+        acceptingUser.teamMemberIds.push(inviterUser.id);
+      }
+      if (!acceptingUser.invitedBy) {
+        acceptingUser.invitedBy = inviterUser.id;
+      }
+      await acceptingUser.save();
+
+      if (!Array.isArray(inviterUser.teamMemberIds)) inviterUser.teamMemberIds = [];
+      if (!inviterUser.teamMemberIds.includes(acceptingUser.id)) {
+        inviterUser.teamMemberIds.push(acceptingUser.id);
+        await inviterUser.save();
+      }
+
+      if (invitation.projectId) {
+        const project = await ProjectModel.findOne({ id: invitation.projectId });
+        if (project) {
+          if (!Array.isArray(project.teamIds)) project.teamIds = [];
+          if (!project.teamIds.includes(acceptingUser.id)) {
+            project.teamIds.push(acceptingUser.id);
+            await project.save();
+          }
+        }
+      }
+    }
+
+    invitation.status = 'accepted';
+    invitation.acceptedAt = now.toISOString();
+    invitation.updatedAt = now.toISOString();
+    await invitation.save();
+
+    return this.mapTeamInvitation(invitation.toObject ? invitation.toObject() : invitation);
+  }
+
+  public async revokeTeamInvitation(inviterId: string, invitationId: string): Promise<boolean> {
+    const invitation = await TeamInvitationModel.findOne({ id: invitationId });
+    if (!invitation) return false;
+
+    if (invitation.inviterId !== inviterId && inviterId !== 'usr_1') {
+      return false;
+    }
+
+    invitation.status = 'revoked';
+    invitation.updatedAt = new Date().toISOString();
+    await invitation.save();
     return true;
   }
 
@@ -528,6 +684,103 @@ export class MongoDatabase {
     return this.getProjectById(key);
   }
 
+  public async getProjectDetails(idOrKey: string) {
+    const project = await this.getProjectById(idOrKey);
+    if (!project) return null;
+
+    const [tasksRes, allPRs, allDeps, allAudits, users] = await Promise.all([
+      TaskModel.find({ projectId: project.id }).lean(),
+      PullRequestModel.find({}).lean(),
+      DeploymentModel.find({}).lean(),
+      AuditActivityModel.find({}).sort({ timestamp: -1 }).limit(100).lean(),
+      this.getUsers(),
+    ]);
+
+    const tasks = tasksRes.map((t: any) => {
+      const { _id, ...rest } = t;
+      const assignee = users.find(u => u.id === rest.assigneeId) || rest.assignee || users[0];
+      return {
+        ...rest,
+        projectName: project.name,
+        assignee,
+      };
+    });
+
+    const repoSlug = project.repoUrl ? project.repoUrl.replace(/^https?:\/\/github\.com\//i, '').toLowerCase() : `dmetrics/${project.key.toLowerCase()}`;
+    const pullRequests = allPRs.filter((pr: any) =>
+      pr.projectId === project.id ||
+      (pr.repo && pr.repo.toLowerCase() === repoSlug) ||
+      (pr.title && pr.title.toUpperCase().includes(`[${project.key.toUpperCase()}]`))
+    ).map((pr: any) => {
+      const { _id, ...rest } = pr;
+      return rest;
+    });
+
+    const serviceSlug = project.name.toLowerCase().replace(/[\s_]+/g, '-');
+    const deployments = allDeps.filter((d: any) =>
+      d.projectId === project.id ||
+      (d.projectName && d.projectName.toLowerCase() === project.name.toLowerCase()) ||
+      (d.serviceName && (d.serviceName.toLowerCase() === serviceSlug || d.serviceName.toLowerCase().includes(project.key.toLowerCase()))) ||
+      (d.repositoryUrl && project.repoUrl && d.repositoryUrl.toLowerCase() === project.repoUrl.toLowerCase())
+    ).map((d: any) => {
+      const { _id, ...rest } = d;
+      return rest;
+    });
+
+    const projectTaskKeys = new Set(tasks.map((t: any) => t.key.toUpperCase()));
+    const recentActivity = allAudits.filter((evt: any) => {
+      if (evt.projectId === project.id || evt.entityId === project.id) return true;
+      const targetUpper = (evt.target || '').toUpperCase();
+      const actionUpper = (evt.action || '').toUpperCase();
+      const metadataUpper = (evt.metadata || '').toUpperCase();
+      if (targetUpper.includes(project.key.toUpperCase()) || targetUpper.includes(project.name.toUpperCase())) return true;
+      if (actionUpper.includes(project.key.toUpperCase()) || actionUpper.includes(project.name.toUpperCase())) return true;
+      if (metadataUpper.includes(project.key.toUpperCase())) return true;
+      for (const tKey of projectTaskKeys) {
+        if (targetUpper.includes(tKey)) return true;
+      }
+      return false;
+    }).slice(0, 15).map((evt: any) => {
+      const { _id, ...rest } = evt;
+      return rest;
+    });
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter((t: any) => t.status === 'done').length;
+    const tasksByStatus = {
+      backlog: tasks.filter(t => t.status === 'backlog').length,
+      in_progress: tasks.filter(t => t.status === 'in_progress').length,
+      in_review: tasks.filter(t => t.status === 'in_review').length,
+      done: completedTasks,
+    };
+    const openPullRequests = pullRequests.filter(p => !p.isMerged && p.status !== 'merged' && p.status !== 'closed').length;
+    const deploymentsCount = deployments.length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : (project.progress || 0);
+
+    const metrics = {
+      totalTasks,
+      completedTasks,
+      tasksByStatus,
+      openPullRequests,
+      deployments: deploymentsCount,
+      progress,
+    };
+
+    return {
+      project: {
+        ...project,
+        progress,
+        totalTasks,
+        completedTasks,
+      },
+      metrics,
+      tasks,
+      pullRequests,
+      deployments,
+      recentActivity,
+    };
+  }
+
   public async createProject(projectData: {
     name: string;
     key: string;
@@ -570,43 +823,6 @@ export class MongoDatabase {
     });
 
     const saved = await newProject.save();
-
-    // Auto-create initial Architecture & CI/CD Setup PR for this project
-    const repoSlug = newProject.repoUrl ? newProject.repoUrl.replace(/^https?:\/\/github\.com\//i, '') : `dmetrics/${newProject.key.toLowerCase()}`;
-    const prNumber = (Math.abs(newProject.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
-    const isTeam = isTeamProject;
-    if (!newProject.key.toUpperCase().startsWith('PERSONAL-')) await this.createPullRequest({
-      id: `pr_proj_${newProject.id}`,
-      number: prNumber,
-      prNumber: `PR #${prNumber}`,
-      title: `[${newProject.key}] Feature Architecture & CI/CD Pipeline Setup`,
-      repo: repoSlug,
-      branch: `feat/${newProject.key.toLowerCase()}-pipeline-arch`,
-      targetBranch: 'main',
-      author: {
-        id: lead.id,
-        name: lead.name,
-        avatar: lead.avatar,
-        role: lead.role,
-        username: lead.username
-      },
-      projectId: newProject.id,
-      projectType: isTeam ? 'team' : 'individual',
-      status: 'open',
-      checksStatus: 'passed',
-      ciStatus: 'passing',
-      additions: 380,
-      deletions: 18,
-      waitingHours: 0.5,
-      slaStatus: 'healthy',
-      diffSnippet: `+ // CI/CD Setup for [${newProject.key}]: ${newProject.name}\n+ export const projectKey = '${newProject.key}';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;`,
-      aiInsights: {
-        summary: `Continuous integration baseline and CI/CD workflow definition for ${newProject.name}. Automated checks passing.`,
-        performance: ['Zero latency regression', 'Optimal bundle budgets'],
-        security: ['No secret leaks detected', 'Strict type assertions'],
-        testing: ['Unit tests passed (100%)', 'Continuous integration green']
-      }
-    });
 
     return {
       ...saved.toObject(),
@@ -1011,110 +1227,7 @@ export class MongoDatabase {
   }
 
   public async ensureProjectPRsSync(): Promise<void> {
-    try {
-      const projects = await ProjectModel.find({}).lean();
-      if (!projects || projects.length === 0) return;
-
-      const allUsers = await UserModel.find({}).lean();
-      const allPRs = await PullRequestModel.find({}).lean();
-
-      for (const p of projects) {
-        // Personal task workspaces are internal containers, not repositories.
-        if (p.key.toUpperCase().startsWith('PERSONAL-')) continue;
-
-        const repoSlug = p.repoUrl
-          ? p.repoUrl.replace(/^https?:\/\/github\.com\//i, '')
-          : `dmetrics/${p.key.toLowerCase()}`;
-
-        const expectedId = `pr_proj_${p.id}`;
-        const hasPR = allPRs.some(pr =>
-          pr.id === expectedId ||
-          (pr.projectId && pr.projectId === p.id) ||
-          (pr.repo && pr.repo.toLowerCase() === repoSlug.toLowerCase()) ||
-          (pr.title && pr.title.toUpperCase().includes(`[${p.key.toUpperCase()}]`))
-        );
-
-        if (!hasPR) {
-          const lead = allUsers.find(u => u.id === p.leadId) || allUsers[0] || {
-            id: 'usr_1',
-            name: 'Developer',
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-            role: 'Engineer',
-            username: 'developer'
-          };
-
-          const isTeam = (p as any).projectType === 'team' || ((p.teamIds && p.teamIds.length > 1) ? true : false);
-          const teamPool = (p.teamIds && p.teamIds.length > 0)
-            ? allUsers.filter(u => p.teamIds!.includes(u.id))
-            : allUsers;
-          const eligible = teamPool.filter(u => u.id !== lead.id && u.name !== lead.name);
-
-          const assignedReviewers = isTeam
-            ? eligible.slice(0, 3).map(u => ({
-                id: u.id,
-                name: u.name,
-                avatar: u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                role: u.role || 'Engineer',
-                username: u.username,
-                status: 'pending' as const
-              }))
-            : [];
-
-          const prNumber = (Math.abs(p.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
-
-          const newPr = {
-            id: expectedId,
-            number: prNumber,
-            prNumber: `PR #${prNumber}`,
-            title: `[${p.key}] Feature Architecture & CI/CD Pipeline Setup`,
-            repo: repoSlug,
-            branch: `feat/${p.key.toLowerCase()}-pipeline-arch`,
-            targetBranch: 'main',
-            author: {
-              id: lead.id,
-              name: lead.name,
-              avatar: lead.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-              role: lead.role || 'Engineer',
-              username: lead.username || lead.name.toLowerCase().replace(/\s+/g, '')
-            },
-            reviewers: assignedReviewers,
-            projectId: p.id,
-            projectType: (isTeam ? 'team' : 'individual') as 'team' | 'individual',
-            status: 'open' as const,
-            checksStatus: 'passed' as const,
-            ciStatus: 'passing',
-            additions: 380,
-            deletions: 18,
-            commentsCount: 1,
-            filesChangedCount: 4,
-            waitingHours: 0.8,
-            slaStatus: 'healthy' as const,
-            isReviewed: false,
-            isMerged: false,
-            queueType: 'review_requested',
-            diffSnippet: `+ // CI/CD Setup for [${p.key}]: ${p.name}\n+ export const projectKey = '${p.key}';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;`,
-            aiInsights: {
-              summary: `Continuous integration baseline and CI/CD workflow definition for ${p.name}. Automated checks passing.`,
-              performance: ['Zero latency regression', 'Optimal bundle budgets'],
-              security: ['No secret leaks detected', 'Strict type assertions'],
-              testing: ['Unit tests passed (100%)', 'Continuous integration green']
-            },
-            createdAt: p.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            turnaroundHours: 1.2
-          };
-
-          try {
-            await PullRequestModel.create(newPr);
-            allPRs.push(newPr as any);
-          } catch (e) {
-            // ignore duplicate key
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('ensureProjectPRsSync error:', err);
-    }
+    // Live data only: No synthetic or mock pull request records are generated.
   }
 
   public async getPullRequests(filters?: {
@@ -1826,7 +1939,7 @@ export class MongoDatabase {
       category: 'deployments',
       actor: {
         id: deploymentData.author?.id || 'usr_1',
-        name: deploymentData.author?.name || 'Alex Chen',
+        name: deploymentData.author?.name || 'Developer',
         avatar: deploymentData.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         role: 'Platform Engineer',
       },
@@ -2240,7 +2353,7 @@ export class MongoDatabase {
       if (withTurnaround.length > 0) {
         avgTurnaround = Number((withTurnaround.reduce((sum, p) => sum + p.turnaroundHours, 0) / withTurnaround.length).toFixed(1));
       } else {
-        avgTurnaround = 1.2;
+        avgTurnaround = 0;
       }
     }
 
@@ -2266,7 +2379,7 @@ export class MongoDatabase {
         productivityScore,
         avgReviewTurnaroundHours: avgTurnaround,
         deploymentSuccessRate,
-        meanTimeToRecoveryMinutes: avgDuration || 1,
+        meanTimeToRecoveryMinutes: avgDuration || 0,
         dailyDeploymentVelocity: allDeployments.length,
         totalStoryPoints: totalPoints,
         completedStoryPoints: donePoints,
@@ -2278,5 +2391,10 @@ export class MongoDatabase {
   private mapUser(raw: any): User {
     const { _id, ...rest } = raw;
     return rest as User;
+  }
+
+  private mapTeamInvitation(raw: any): TeamInvitation {
+    const { _id, ...rest } = raw;
+    return rest as TeamInvitation;
   }
 }

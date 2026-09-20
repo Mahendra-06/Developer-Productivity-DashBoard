@@ -77,10 +77,10 @@ export const EngineeringInsightsView: React.FC = () => {
   const reviewedPRs = scopedPRs.filter(p => p.isReviewed || p.isMerged);
   const mergedPRs = scopedPRs.filter(p => p.isMerged || p.status === 'merged');
   const avgTurnaround = scopedPRs.length > 0 
-    ? (scopedPRs.reduce((acc, p) => acc + (p.turnaroundHours || 1.2), 0) / scopedPRs.length).toFixed(1)
-    : '1.2';
+    ? (scopedPRs.reduce((acc, p) => acc + (p.turnaroundHours || p.waitingHours || 0), 0) / scopedPRs.length).toFixed(1)
+    : '0.0';
   const healthySlaPRs = scopedPRs.filter(p => p.slaStatus === 'healthy' || p.isMerged);
-  const slaComplianceRate = scopedPRs.length > 0 ? Math.round((healthySlaPRs.length / scopedPRs.length) * 100) : 100;
+  const slaComplianceRate = scopedPRs.length > 0 ? Math.round((healthySlaPRs.length / scopedPRs.length) * 100) : 0;
 
   // Deep work focus metric
   const deepWorkGoal = user.weeklyGoalHours || 20;
@@ -100,17 +100,23 @@ export const EngineeringInsightsView: React.FC = () => {
         doneTasks: mDone.length,
         totalPoints: mPoints,
         donePoints: mDonePoints,
-        utilization: Math.min(100, Math.max(10, mTasks.length * 20)),
+        utilization: mTasks.length > 0 ? Math.min(100, Math.max(10, mTasks.length * 20)) : 0,
       };
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [teamMembers, tasks]);
 
-  // Lead time breakdown stages (simulated based on real task story point deliverables)
+  // Lead time breakdown stages based on real task story point deliverables
+  const codingHours = Number((completedPoints * 0.8).toFixed(1));
+  const prHours = Number(avgTurnaround);
+  const qaHours = Number((completedTasks.length * 0.4).toFixed(1));
+  const mergeHours = completedTasks.length > 0 ? 0.3 : 0;
+  const totalLeadHours = codingHours + prHours + qaHours + mergeHours;
+
   const leadTimeStages = [
-    { name: 'Coding & Local Iteration', hours: Number((completedPoints * 0.8).toFixed(1)) || 2.4, color: 'bg-indigo-500', pct: 45 },
-    { name: 'PR Review & Feedback SLA', hours: Number(avgTurnaround) || 1.2, color: 'bg-purple-500', pct: 25 },
-    { name: 'QA & Test Verification', hours: Number((completedTasks.length * 0.4).toFixed(1)) || 0.8, color: 'bg-emerald-500', pct: 18 },
-    { name: 'Merge & Audit Logging', hours: 0.3, color: 'bg-cyan-500', pct: 12 },
+    { name: 'Coding & Local Iteration', hours: codingHours, color: 'bg-indigo-500', pct: totalLeadHours > 0 ? Math.round((codingHours / totalLeadHours) * 100) : 0 },
+    { name: 'PR Review & Feedback SLA', hours: prHours, color: 'bg-purple-500', pct: totalLeadHours > 0 ? Math.round((prHours / totalLeadHours) * 100) : 0 },
+    { name: 'QA & Test Verification', hours: qaHours, color: 'bg-emerald-500', pct: totalLeadHours > 0 ? Math.round((qaHours / totalLeadHours) * 100) : 0 },
+    { name: 'Merge & Audit Logging', hours: mergeHours, color: 'bg-cyan-500', pct: totalLeadHours > 0 ? Math.max(0, 100 - (Math.round((codingHours / totalLeadHours) * 100) + Math.round((prHours / totalLeadHours) * 100) + Math.round((qaHours / totalLeadHours) * 100))) : 0 },
   ];
 
   return (
@@ -194,7 +200,7 @@ export const EngineeringInsightsView: React.FC = () => {
             </div>
             <p className="text-[11px] text-emerald-500 font-medium mt-1 flex items-center gap-1">
               <ArrowDownRight className="w-3 h-3" />
-              18% faster than baseline SLA
+              {scopedPRs.length > 0 ? (Number(avgTurnaround) <= 4 ? 'Within standard SLA (<4h)' : 'SLA exceeded (>4h)') : 'No active PRs'}
             </p>
           </div>
         </div>
@@ -271,7 +277,7 @@ export const EngineeringInsightsView: React.FC = () => {
             </div>
           </div>
           <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-            DORA Elite Tier
+            {depMetrics && depMetrics.totalDeployments > 0 ? (depMetrics.successRate >= 95 ? 'DORA Elite Tier' : 'DORA High Tier') : 'DORA Telemetry Ready'}
           </span>
         </div>
 
@@ -420,7 +426,11 @@ export const EngineeringInsightsView: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold font-mono text-indigo-400">{avgTurnaround} hrs</span>
-                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded">Optimal</span>
+                {scopedPRs.length > 0 && (
+                  <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded">
+                    {Number(avgTurnaround) <= 4 ? 'Optimal' : 'Elevated'}
+                  </span>
+                )}
               </div>
             </div>
           </div>

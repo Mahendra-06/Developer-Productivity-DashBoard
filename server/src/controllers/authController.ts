@@ -6,6 +6,7 @@ import { env } from '../config/env.js';
 import { ResponseHelper } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
+import { EmailService } from '../services/emailService.js';
 
 export class AuthController {
   static register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -35,6 +36,12 @@ export class AuthController {
         ? githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/$/, '')
         : '';
 
+      // Generate cryptographically secure OTP and secure hash
+      const otp = EmailService.generateOtp();
+      const emailOtpHash = await EmailService.hashOtp(otp);
+      const emailOtpExpiresAt = new Date(Date.now() + EmailService.OTP_EXPIRY_MS).toISOString();
+      const emailOtpLastSentAt = new Date().toISOString();
+
       const newUser = await db.createUser({
         name,
         email,
@@ -49,21 +56,27 @@ export class AuthController {
         githubUrl: cleanGithub ? `https://github.com/${cleanGithub}` : '',
         invitedBy: req.body.invitedBy || '',
         passwordHash,
+        isEmailVerified: false,
+        emailOtpHash,
+        emailOtpExpiresAt,
+        emailOtpAttempts: 0,
+        emailOtpLastSentAt,
       });
 
-      // Generate JWT
-      const token = jwt.sign(
-        { id: newUser.id, email: newUser.email, role: newUser.role },
-        env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
+      // Dispatch verification email
+      await EmailService.sendVerificationOtp(newUser.email, otp, newUser.name);
 
-      const { passwordHash: _, ...sanitizedUser } = newUser;
+      const { passwordHash: _, emailOtpHash: __, ...sanitizedUser } = newUser;
 
+      // Response omits dashboard JWT token until successful email verification
       ResponseHelper.created(
         res,
-        { user: sanitizedUser, token },
-        'User registered successfully',
+        {
+          user: sanitizedUser,
+          requiresEmailVerification: true,
+          email: newUser.email,
+        },
+        'User registered successfully. Please verify your email with the one-time password (OTP) sent to your inbox.',
         `/api/users/${newUser.id}`
       );
     } catch (error) {
@@ -93,7 +106,6 @@ export class AuthController {
       if (user.passwordHash) {
         isMatch = await bcrypt.compare(password, user.passwordHash);
       } else {
-        // Fallback for pre-seeded users (Alex Chen, etc.)
         isMatch = password === 'password123' || password === 'admin' || password === 'dmetrics';
       }
 
@@ -101,20 +113,167 @@ export class AuthController {
         throw new ApiError(401, 'Invalid credentials. Please check your email/username and password.', [], true, '', 'UnauthorizedError');
       }
 
-      // Sign JWT
+      // Check if email is verified
+      if (user.isEmailVerified === false) {
+        // Enforce OTP verification before granting dashboard access
+        const isExpired = !user.emailOtpExpiresAt || new Date(user.emailOtpExpiresAt).getTime() < Date.now();
+        if (isExpired) {
+          const otp = EmailService.generateOtp();
+          const emailOtpHash = await EmailService.hashOtp(otp);
+          const emailOtpExpiresAt = new Date(Date.now() + EmailService.OTP_EXPIRY_MS).toISOString();
+          const emailOtpLastSentAt = new Date().toISOString();
+          await db.updateUser(user.id, {
+            emailOtpHash,
+            emailOtpExpiresAt,
+            emailOtpAttempts: 0,
+            emailOtpLastSentAt,
+          });
+          await EmailService.sendVerificationOtp(user.email, otp, user.name);
+        }
+
+        const { passwordHash: _, emailOtpHash: __, ...sanitizedUser } = user;
+        ResponseHelper.success(
+          res,
+          {
+            requiresEmailVerification: true,
+            email: user.email,
+            user: sanitizedUser,
+          },
+          'Email verification required. Please enter the OTP sent to your email.'
+        );
+        return;
+      }
+
+      // Sign JWT for verified accounts
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role },
         env.JWT_SECRET,
         { expiresIn: '7d' }
       );
 
-      const { passwordHash: _, ...sanitizedUser } = user;
+      const { passwordHash: _, emailOtpHash: __, ...sanitizedUser } = user;
 
       ResponseHelper.success(
         res,
         { user: sanitizedUser, token },
         'Authentication successful'
       );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  static verifyEmailOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email, otp } = req.body;
+      const normalizedEmail = (email || '').trim().toLowerCase();
+      const user = await db.getUserByEmail(normalizedEmail);
+
+      const genericErrorMessage = 'Invalid or expired verification code';
+
+      if (!user) {
+        throw ApiError.badRequest(genericErrorMessage);
+      }
+
+      if (user.isEmailVerified) {
+        throw ApiError.badRequest(genericErrorMessage);
+      }
+
+      // Check maximum verification attempts
+      if ((user.emailOtpAttempts || 0) >= EmailService.OTP_MAX_ATTEMPTS) {
+        throw ApiError.badRequest('Maximum verification attempts exceeded. Please request a new OTP.');
+      }
+
+      // Check expiration
+      if (!user.emailOtpExpiresAt || new Date(user.emailOtpExpiresAt).getTime() < Date.now()) {
+        throw ApiError.badRequest(genericErrorMessage);
+      }
+
+      // Check OTP hash existence
+      if (!user.emailOtpHash) {
+        throw ApiError.badRequest(genericErrorMessage);
+      }
+
+      // Validate OTP
+      const isValid = await EmailService.verifyOtpHash(otp, user.emailOtpHash);
+      if (!isValid) {
+        const nextAttempts = (user.emailOtpAttempts || 0) + 1;
+        await db.updateUser(user.id, { emailOtpAttempts: nextAttempts });
+        if (nextAttempts >= EmailService.OTP_MAX_ATTEMPTS) {
+          throw ApiError.badRequest('Maximum verification attempts exceeded. Please request a new OTP.');
+        }
+        throw ApiError.badRequest(genericErrorMessage);
+      }
+
+      // Valid OTP: mark verified, clear OTP fields
+      const updatedUser = await db.updateUser(user.id, {
+        isEmailVerified: true,
+        emailOtpHash: null,
+        emailOtpExpiresAt: null,
+        emailOtpAttempts: 0,
+        emailOtpLastSentAt: null,
+      });
+
+      const authedUser = updatedUser || user;
+
+      // Generate dashboard access token
+      const token = jwt.sign(
+        { id: authedUser.id, email: authedUser.email, role: authedUser.role },
+        env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      const { passwordHash: _, emailOtpHash: __, ...sanitizedUser } = authedUser;
+
+      ResponseHelper.success(
+        res,
+        { user: sanitizedUser, token },
+        'Email verified successfully. Welcome to DMetrics!'
+      );
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  static resendEmailOtp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email } = req.body;
+      const normalizedEmail = (email || '').trim().toLowerCase();
+      const user = await db.getUserByEmail(normalizedEmail);
+
+      const genericSuccessMessage = 'If the account exists and requires verification, a new OTP has been sent.';
+
+      // Return generic message if user doesn't exist or is already verified
+      if (!user || user.isEmailVerified) {
+        ResponseHelper.success(res, { cooldownSeconds: 60 }, genericSuccessMessage);
+        return;
+      }
+
+      // Check resend cooldown
+      if (user.emailOtpLastSentAt) {
+        const elapsedMs = Date.now() - new Date(user.emailOtpLastSentAt).getTime();
+        if (elapsedMs < EmailService.OTP_RESEND_COOLDOWN_MS) {
+          const waitSeconds = Math.ceil((EmailService.OTP_RESEND_COOLDOWN_MS - elapsedMs) / 1000);
+          throw ApiError.tooManyRequests(`Please wait ${waitSeconds} seconds before requesting a new OTP.`);
+        }
+      }
+
+      // Generate new OTP, invalidating previous
+      const otp = EmailService.generateOtp();
+      const emailOtpHash = await EmailService.hashOtp(otp);
+      const emailOtpExpiresAt = new Date(Date.now() + EmailService.OTP_EXPIRY_MS).toISOString();
+      const emailOtpLastSentAt = new Date().toISOString();
+
+      await db.updateUser(user.id, {
+        emailOtpHash,
+        emailOtpExpiresAt,
+        emailOtpAttempts: 0,
+        emailOtpLastSentAt,
+      });
+
+      await EmailService.sendVerificationOtp(user.email, otp, user.name);
+
+      ResponseHelper.success(res, { cooldownSeconds: 60 }, genericSuccessMessage);
     } catch (error) {
       next(error);
     }

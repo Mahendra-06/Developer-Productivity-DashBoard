@@ -54,6 +54,10 @@ export class ApiError extends Error {
     return new ApiError(422, message, errors, true, '', 'UnprocessableEntity');
   }
 
+  static tooManyRequests(message: string = 'Too many requests'): ApiError {
+    return new ApiError(429, message, [], true, '', 'TooManyRequests');
+  }
+
   static internal(message: string = 'Internal Server Error'): ApiError {
     return new ApiError(500, message, [], false, '', 'InternalServerError');
   }

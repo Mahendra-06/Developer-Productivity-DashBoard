@@ -8,6 +8,8 @@ import { ProjectStatus, ProjectCategory } from '../../types';
 interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
+  project?: any | null;
+  onSuccess?: (updatedProject: any) => void;
 }
 
 const PRESET_COLORS = [
@@ -20,8 +22,8 @@ const PRESET_COLORS = [
   { hex: '#3b82f6', label: 'Blue' },
 ];
 
-export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) => {
-  const { addProject, teamMembers, user } = useDashboard();
+export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, project, onSuccess }) => {
+  const { addProject, updateProject, teamMembers, user } = useDashboard();
 
   const getDefaultDeadline = () => {
     const d = new Date();
@@ -44,7 +46,18 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) =
 
   // Keep selected team member IDs in sync with lead and team availability
   useEffect(() => {
-    if (teamMembers.length > 0) {
+    if (project) {
+      setName(project.name || '');
+      setKey(project.key || '');
+      setDescription(project.description || '');
+      setProjectType(project.projectType || 'team');
+      setLeadId(project.leadId || project.lead?.id || teamMembers[0]?.id || 'usr_1');
+      setSelectedTeamIds(project.teamIds || (project.team ? project.team.map((m: any) => m.id) : []));
+      setDeadline(project.deadline || getDefaultDeadline());
+      setColor(project.color || '#6366f1');
+      setStatus(project.status || 'on_track');
+      setRepoUrl(project.repoUrl || '');
+    } else if (teamMembers.length > 0) {
       if (!selectedTeamIds.length) {
         setSelectedTeamIds(teamMembers.map(m => m.id));
       }
@@ -52,7 +65,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) =
         setLeadId(projectType === 'individual' ? (user?.id || teamMembers[0].id) : teamMembers[0].id);
       }
     }
-  }, [teamMembers, user, projectType]);
+  }, [teamMembers, user, projectType, project, isOpen]);
 
   const handleProjectTypeChange = (newType: ProjectCategory) => {
     setProjectType(newType);
@@ -126,6 +139,24 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) =
 
     setIsSubmitting(true);
     try {
+      if (project) {
+        const updated = await updateProject(project.id, {
+          name: name.trim(),
+          key: cleanKey,
+          description: description.trim(),
+          projectType,
+          leadId: finalLeadId,
+          teamIds: finalTeamIds,
+          deadline,
+          color,
+          status,
+          repoUrl: repoUrl.trim() || `https://github.com/dmetrics/${cleanKey.toLowerCase()}`,
+        });
+        if (onSuccess) onSuccess(updated);
+        onClose();
+        return;
+      }
+
       await addProject({
         name: name.trim(),
         key: cleanKey,
@@ -147,7 +178,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) =
       setProjectType('team');
       onClose();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to create project. Please check if the project key is already taken.');
+      setErrorMessage(err.message || 'Failed to save project. Please check if the project key is already taken.');
     } finally {
       setIsSubmitting(false);
     }
@@ -157,9 +188,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) =
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Engineering Project"
-      subtitle="Register a new service, microservice, or repository"
-      maxWidth="max-w-xl"
+      title={project ? `Edit Project: ${project.name}` : "Create Engineering Project"}
+      subtitle={project ? "Update service configuration, team members, and delivery milestones" : "Initialize a new microservice repository, sprint milestone, and CI/CD pipeline"}
+      maxWidth="max-w-2xl"
     >
       <div className="space-y-4">
         {errorMessage && (
@@ -521,12 +552,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose }) =
               {isSubmitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Creating Service...</span>
+                  <span>{project ? 'Saving Changes...' : 'Creating Service...'}</span>
                 </>
               ) : (
                 <>
                   <FolderPlus className="w-4 h-4" />
-                  <span>Register Project</span>
+                  <span>{project ? 'Save Project' : 'Register Project'}</span>
                 </>
               )}
             </Button>

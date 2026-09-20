@@ -2,18 +2,15 @@ import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { 
-  UserPlus, 
   Mail, 
   User, 
   AtSign, 
   Briefcase, 
   Github, 
   FolderGit2, 
-  CheckSquare, 
-  Key, 
   Sparkles, 
   CheckCircle2, 
-  Layers
+  AlertCircle
 } from 'lucide-react';
 import { useDashboard } from '../../context/DashboardContext';
 
@@ -49,9 +46,9 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   const [projectId, setProjectId] = useState(defaultProjectId || (projects[0]?.id || ''));
   const [initialTaskTitle, setInitialTaskTitle] = useState('');
   const [storyPoints, setStoryPoints] = useState<number>(3);
-  const [password, setPassword] = useState('password123');
 
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{ name: string; email: string } | null>(null);
 
   const resetForm = () => {
@@ -61,20 +58,31 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     setRole('Senior Full-Stack Engineer');
     setGithubUsername('');
     setInitialTaskTitle('');
-    setPassword('password123');
+    setErrorMessage(null);
     setSuccessInfo(null);
   };
 
   const handleNameChange = (val: string) => {
     setName(val);
+    setErrorMessage(null);
     if (!username || username === name.toLowerCase().replace(/[^a-z0-9]/g, '_')) {
       setUsername(val.toLowerCase().replace(/[^a-z0-9]/g, '_'));
     }
   };
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    setErrorMessage(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
+    setErrorMessage(null);
+
+    if (!name.trim() || !email.trim()) {
+      setErrorMessage('Please enter both Full Name and Work Email.');
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -84,7 +92,6 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
         username: username.trim() || name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_'),
         role,
         githubUsername: githubUsername.trim() || undefined,
-        password: password || 'password123',
         projectId: projectId || undefined,
         initialTaskTitle: initialTaskTitle.trim() || undefined,
         storyPoints,
@@ -96,14 +103,16 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
         onClose();
       }, 2000);
     } catch (err: any) {
-      console.error(err);
+      console.error('Invite member error:', err);
+      const message = err?.message || 'Failed to onboard team member. Please try again.';
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   const previewAvatar = githubUsername.trim()
-    ? `https://github.com/${githubUsername.trim()}.png`
+    ? `https://github.com/${githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '')}.png`
     : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(username || name || 'developer')}`;
 
   return (
@@ -111,7 +120,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       isOpen={isOpen}
       onClose={() => { resetForm(); onClose(); }}
       title="Onboard Team Member & Assign Work"
-      subtitle="Create a genuine developer profile with instant workspace synchronization and deliverable assignment."
+      subtitle="Add an existing developer to your workspace with project assignment and deliverable tracking."
       maxWidth="max-w-xl"
     >
       {successInfo ? (
@@ -121,15 +130,26 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
           </div>
           <h3 className="text-base font-bold text-white">Teammate Successfully Added!</h3>
           <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
-            <span className="font-semibold text-brand-300">{successInfo.name}</span> has been provisioned into the workspace database.
+            <span className="font-semibold text-brand-300">{successInfo.name}</span> has been linked to your team and workspace lobby.
           </p>
           <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-300 inline-block text-left">
-            <div>Login: <span className="text-emerald-400">{successInfo.email}</span></div>
-            <div>Password: <span className="text-emerald-400">{password}</span></div>
+            <div>Member: <span className="text-emerald-400">{successInfo.email}</span></div>
+            <div>Status: <span className="text-emerald-400">Linked to Team</span></div>
           </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          {/* Inline Error Alert */}
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-start gap-3 animate-shake">
+              <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+              <div className="text-xs leading-relaxed">
+                <span className="font-semibold text-rose-200">Unable to invite member: </span>
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
+
           {/* Identity Preview Card */}
           <div className="p-3 rounded-2xl bg-gradient-to-r from-brand-500/10 via-purple-500/10 to-transparent border border-brand-500/20 flex items-center gap-3.5">
             <div className="relative shrink-0">
@@ -162,7 +182,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                 {githubUsername.trim() && (
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 flex items-center gap-1">
                     <Github className="w-2.5 h-2.5" />
-                    {githubUsername.trim()}
+                    {githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '')}
                   </span>
                 )}
               </div>
@@ -203,7 +223,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   required
                   placeholder="elena@dmetrics.dev"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => handleEmailChange(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition"
                 />
               </div>
@@ -225,7 +245,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   required
                   placeholder="elena_dev"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => { setUsername(e.target.value); setErrorMessage(null); }}
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition font-mono"
                 />
               </div>
@@ -331,24 +351,6 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                 </select>
               </div>
             </div>
-          </div>
-
-          {/* Initial Password */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-slate-400" />
-                <span>Initial Login Password</span>
-              </span>
-              <span className="text-[10px] text-amber-400 font-mono">Teammate can sign in with this</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition font-mono"
-            />
           </div>
 
           {/* Submit Actions */}

@@ -34,7 +34,7 @@ export const LucidPipelineFlowDiagram: React.FC<LucidPipelineFlowDiagramProps> =
 
   const totalDeployments = deployments.length;
   const successfulDeployments = deployments.filter(d => d.status === 'success').length;
-  const depSuccessRate = totalDeployments > 0 ? Math.round((successfulDeployments / totalDeployments) * 100) : 100;
+  const depSuccessRate = totalDeployments > 0 ? Math.round((successfulDeployments / totalDeployments) * 100) : 0;
 
   const totalPoints = tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
   const donePoints = doneTasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
@@ -89,12 +89,12 @@ export const LucidPipelineFlowDiagram: React.FC<LucidPipelineFlowDiagramProps> =
       title: 'CI/CD Gate',
       subtitle: 'Automated Checks',
       icon: Cpu,
-      count: totalDeployments > 0 ? totalDeployments : projects.length,
-      points: Math.round(totalPoints * 0.7),
+      count: totalDeployments,
+      points: donePoints,
       accent: '#06b6d4',
       bgGlow: 'rgba(6, 182, 212, 0.15)',
       borderColor: 'border-cyan-500/40',
-      tag: `${depSuccessRate}% Pass Rate`,
+      tag: totalDeployments > 0 ? `${depSuccessRate}% Pass Rate` : 'No Runs',
       actionTab: 'deployments',
     },
     {

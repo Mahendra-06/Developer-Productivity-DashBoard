@@ -13,8 +13,6 @@ import {
   Activity,
   Layers,
   User,
-  BookOpen,
-  ExternalLink,
   LogIn,
   UserPlus,
   LogOut,
@@ -327,22 +325,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden sm:inline">Deep Work</span>
           </button>
         )}
-
-        {/* Swagger API Docs Interactive Launcher */}
-        <a
-          href="http://localhost:5000/api/docs"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 transition-all shadow-sm"
-          title="Open interactive Swagger / OpenAPI 3.0 Documentation in a new tab"
-        >
-          <BookOpen className="w-3.5 h-3.5 text-brand-500" />
-          <span>API Docs</span>
-          <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-brand-500/10 text-brand-500 border border-brand-500/20 font-bold">
-            Swagger
-          </span>
-          <ExternalLink className="w-3 h-3 text-slate-400" />
-        </a>
 
         {/* Notifications Dropdown */}
         <div className="relative">

@@ -15,10 +15,10 @@ export const PRHealthDistribution: React.FC = () => {
   const breachedCount = prs.filter(p => p.slaStatus === 'breached').length;
 
   const avgTurnaround = prs.length > 0
-    ? (prs.reduce((sum, p) => sum + (p.turnaroundHours || p.waitingHours || 2), 0) / prs.length).toFixed(1)
+    ? (prs.reduce((sum, p) => sum + (p.turnaroundHours || p.waitingHours || 0), 0) / prs.length).toFixed(1)
     : '0.0';
 
-  const approvalRate = totalPRs > 0 ? Math.round(((mergedPRs + reviewedPRs) / totalPRs) * 100) : 100;
+  const approvalRate = totalPRs > 0 ? Math.round(((mergedPRs + reviewedPRs) / totalPRs) * 100) : 0;
 
   if (totalPRs === 0) {
     return (
@@ -47,7 +47,7 @@ export const PRHealthDistribution: React.FC = () => {
 
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-400 font-mono">
           <span>Review Health</span>
-          <span>100% On Target</span>
+          <span>No Active PRs</span>
         </div>
       </div>
     );

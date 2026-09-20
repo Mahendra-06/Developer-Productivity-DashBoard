@@ -35,6 +35,19 @@ export class ProjectController {
     }
   };
 
+  static getProjectDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const details = await db.getProjectDetails(id);
+      if (!details) {
+        throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+      }
+      ResponseHelper.success(res, details, 'Project details retrieved successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
   static createProject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { key, leadId } = req.body;

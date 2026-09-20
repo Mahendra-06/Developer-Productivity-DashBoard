@@ -27,7 +27,7 @@ export const ContributionsShowcase: React.FC = () => {
       status: p.status === 'merged' ? 'merged' : 'approved',
       additions: p.additions || 0,
       deletions: p.deletions || 0,
-      reviewTurnaround: `${p.turnaroundHours || 1.2}h`,
+      reviewTurnaround: p.turnaroundHours ? `${p.turnaroundHours}h` : (p.waitingHours ? `${p.waitingHours}h` : '--'),
       repo: p.repo || 'origin/main',
       url: p.url || '#'
     }));

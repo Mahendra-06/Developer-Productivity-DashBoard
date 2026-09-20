@@ -94,6 +94,24 @@ export const TeammatePresenceGrid: React.FC<TeammatePresenceGridProps> = ({
     return true;
   });
 
+  if (filtered.length === 0) {
+    return (
+      <div className="py-12 px-6 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/80 shadow-sm text-center">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center mx-auto mb-3 text-slate-400">
+          <Users className="w-6 h-6" />
+        </div>
+        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {presences.length === 0 ? 'No Teammates Connected' : 'No Teammates Found'}
+        </h4>
+        <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+          {presences.length === 0
+            ? 'Teammates will appear here live when they log in or are invited to the workspace.'
+            : 'Try adjusting your search query or status filter.'}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {filtered.map((teammate) => {

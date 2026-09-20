@@ -49,7 +49,7 @@ export const VelocityChart: React.FC = () => {
         };
       })
     : [
-        { sprint: 'Sprint 24 (Active)', planned: totalPoints || 25, completed: donePoints || 18 },
+        { sprint: 'Active Sprint', planned: totalPoints, completed: donePoints },
       ];
 
   const maxPoints = Math.max(10, ...velocityData.map((d: any) => Math.max(d.planned, d.completed)));

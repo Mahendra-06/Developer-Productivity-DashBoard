@@ -39,6 +39,10 @@ export const requireAuth = async (req: AuthRequest, _res: Response, next: NextFu
       return next(ApiError.unauthorized('Unauthorized: Authenticated user account no longer exists'));
     }
 
+    if (user.isEmailVerified === false) {
+      return next(ApiError.forbidden('Email verification required: Please verify your email before accessing protected resources'));
+    }
+
     const { passwordHash: _, ...sanitizedUser } = user;
     req.user = sanitizedUser;
     next();
@@ -96,7 +100,7 @@ export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextF
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
     const user = await db.getUserById(decoded.id);
-    if (user) {
+    if (user && user.isEmailVerified !== false) {
       const { passwordHash: _, ...sanitizedUser } = user;
       req.user = sanitizedUser;
     }

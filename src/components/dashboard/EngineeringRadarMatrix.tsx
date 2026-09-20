@@ -23,24 +23,24 @@ export const EngineeringRadarMatrix: React.FC = () => {
   const donePoints = tasks.filter(t => t.status === 'done').reduce((sum, t) => sum + (t.storyPoints || 0), 0);
 
   // 1. Velocity Efficiency
-  const velocityScore = totalPoints > 0 ? Math.min(100, Math.round((donePoints / totalPoints) * 100) + 20) : 75;
+  const velocityScore = totalPoints > 0 ? Math.min(100, Math.round((donePoints / totalPoints) * 100)) : 0;
 
   // 2. Review Agility
   const mergedPRs = prs.filter(p => p.isMerged).length;
-  const reviewScore = prs.length > 0 ? Math.min(100, Math.round((mergedPRs / prs.length) * 100) + 25) : 85;
+  const reviewScore = prs.length > 0 ? Math.min(100, Math.round((mergedPRs / prs.length) * 100)) : 0;
 
   // 3. Pipeline Stability
   const successfulDeps = deployments.filter(d => d.status === 'success').length;
-  const stabilityScore = deployments.length > 0 ? Math.round((successfulDeps / deployments.length) * 100) : 95;
+  const stabilityScore = deployments.length > 0 ? Math.round((successfulDeps / deployments.length) * 100) : 0;
 
   // 4. Workload Balance
-  const domainScore = totalTasks > 0 ? Math.min(100, Math.round((completedTasks / totalTasks) * 80) + 20) : 80;
+  const domainScore = totalTasks > 0 ? Math.min(100, Math.round((completedTasks / totalTasks) * 100)) : 0;
 
   // 5. Deployment Cadence
-  const cadenceScore = deployments.length > 0 ? Math.min(100, deployments.length * 20 + 40) : 70;
+  const cadenceScore = deployments.length > 0 ? Math.min(100, deployments.length * 20) : 0;
 
   // 6. Focus Intensity
-  const focusScore = user?.productivityScore ? Math.min(100, user.productivityScore) : 88;
+  const focusScore = user?.productivityScore ? Math.min(100, user.productivityScore) : 0;
 
   const radarData = [
     { subject: 'Velocity', score: velocityScore, benchmark: 80, fullMark: 100 },

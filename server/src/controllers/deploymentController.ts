@@ -76,7 +76,7 @@ export class DeploymentController {
         ...req.body,
         author: req.body.author || {
           id: req.user?.id || 'usr_1',
-          name: req.user?.name || 'Alex Chen',
+          name: req.user?.name || 'Developer',
           avatar: req.user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
           email: req.user?.email,
           username: req.user?.username,

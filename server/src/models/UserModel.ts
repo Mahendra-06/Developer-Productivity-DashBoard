@@ -52,6 +52,27 @@ const UserSchema = new Schema<UserDocument>(
       type: String,
       default: '',
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    emailOtpHash: {
+      type: String,
+      default: null,
+    },
+    emailOtpExpiresAt: {
+      type: String,
+      default: null,
+    },
+    emailOtpAttempts: {
+      type: Number,
+      default: 0,
+    },
+    emailOtpLastSentAt: {
+      type: String,
+      default: null,
+    },
     bio: {
       type: String,
       default: '',
@@ -153,6 +174,8 @@ const UserSchema = new Schema<UserDocument>(
     toJSON: {
       transform: (_doc, ret) => {
         delete (ret as any)._id;
+        delete (ret as any).passwordHash;
+        delete (ret as any).emailOtpHash;
         return ret;
       },
     },

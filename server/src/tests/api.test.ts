@@ -7,7 +7,8 @@ import {
   testPullRequests,
   testDeployments,
   testAuditEvents,
-} from '../data/seedData.js';
+} from './fixtures.js';
+import { EmailService } from '../services/emailService.js';
 import http from 'http';
 
 const TEST_PORT = 5098;
@@ -200,6 +201,31 @@ async function runTests() {
       const body: any = await res.json();
       assert(body.data.key === 'CPE', 'Expected key CPE');
       assert(body.data.name === 'Core Platform Engine', 'Expected Core Platform Engine');
+    });
+
+    await testCase('GET /projects/:id/details returns project details with metrics, tasks, and telemetry', async () => {
+      const res = await fetch(`${BASE_URL}/projects/CPE/details`);
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === true, 'Expected success true');
+      assert(body.data.project && body.data.project.key === 'CPE', 'Expected project with key CPE');
+      assert(body.data.metrics && typeof body.data.metrics.totalTasks === 'number', 'Expected metrics.totalTasks');
+      assert(typeof body.data.metrics.completedTasks === 'number', 'Expected metrics.completedTasks');
+      assert(typeof body.data.metrics.openPullRequests === 'number', 'Expected metrics.openPullRequests');
+      assert(typeof body.data.metrics.deployments === 'number', 'Expected metrics.deployments');
+      assert(typeof body.data.metrics.progress === 'number', 'Expected metrics.progress');
+      assert(body.data.metrics.tasksByStatus && typeof body.data.metrics.tasksByStatus.done === 'number', 'Expected metrics.tasksByStatus');
+      assert(Array.isArray(body.data.tasks), 'Expected array of tasks');
+      assert(Array.isArray(body.data.pullRequests), 'Expected array of pullRequests');
+      assert(Array.isArray(body.data.deployments), 'Expected array of deployments');
+      assert(Array.isArray(body.data.recentActivity), 'Expected array of recentActivity');
+    });
+
+    await testCase('GET /projects/:id/details returns 404 for non-existent project', async () => {
+      const res = await fetch(`${BASE_URL}/projects/NON_EXISTENT_PROJ_999/details`);
+      assert(res.status === 404, `Expected 404, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === false, 'Expected success false');
     });
 
     await testCase('POST /projects validates inputs and duplicate key', async () => {
@@ -422,9 +448,10 @@ async function runTests() {
       assert(body.path === '/api/some-route-that-does-not-exist', 'Expected path in error response');
     });
 
-    // 8. Authentication & Protected Routes
+    // 8. Authentication, Email Verification (OTP), and Protected Routes
     let authToken = '';
-    await testCase('POST /api/auth/register hashes password and returns JWT token', async () => {
+
+    await testCase('POST /api/auth/register creates unverified user and triggers OTP email', async () => {
       const res = await fetch(`${BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -438,13 +465,160 @@ async function runTests() {
       });
       assert(res.status === 201, `Expected 201, got ${res.status}`);
       const body: any = await res.json();
-      assert(Boolean(body.data.token), 'Expected JWT token in response');
+      assert(body.data.token === undefined, 'Expected no JWT token issued before verification');
+      assert(body.data.requiresEmailVerification === true, 'Expected requiresEmailVerification true');
       assert(body.data.user.email === 'jane.doe@innovate.dev', 'Expected user email');
-      assert(body.data.user.passwordHash === undefined, 'Expected passwordHash to be sanitized');
-      authToken = body.data.token;
+      assert(body.data.user.passwordHash === undefined, 'Expected passwordHash sanitized');
+      assert(body.data.user.emailOtpHash === undefined, 'Expected emailOtpHash sanitized');
+
+      // Verify OTP was stored and sent via EmailService
+      const sentOtp = EmailService.getLastSentOtpForTest('jane.doe@innovate.dev');
+      assert(Boolean(sentOtp && sentOtp.length === 6), 'Expected 6-digit OTP recorded by EmailService');
     });
 
-    await testCase('POST /api/auth/login verifies password and returns JWT', async () => {
+    await testCase('POST /api/auth/login blocks unverified user from accessing dashboard', async () => {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          login: 'janedoe',
+          password: 'securePassword123!',
+        }),
+      });
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.data.token === undefined, 'Expected no JWT token for unverified user');
+      assert(body.data.requiresEmailVerification === true, 'Expected requiresEmailVerification true');
+    });
+
+    await testCase('POST /api/auth/verify-email-otp rejects invalid 6-digit OTP with 400', async () => {
+      const res = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'jane.doe@innovate.dev',
+          otp: '000000',
+        }),
+      });
+      assert(res.status === 400, `Expected 400 for invalid OTP, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === false, 'Expected success false');
+    });
+
+    await testCase('POST /api/auth/resend-email-otp enforces 60-second cooldown rate limit', async () => {
+      // Immediate resend attempt should fail with 429 Too Many Requests due to cooldown
+      const res = await fetch(`${BASE_URL}/auth/resend-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'jane.doe@innovate.dev',
+        }),
+      });
+      assert(res.status === 429, `Expected 429 Too Many Requests, got ${res.status}`);
+    });
+
+    await testCase('POST /api/auth/resend-email-otp returns generic message for unknown email', async () => {
+      const res = await fetch(`${BASE_URL}/auth/resend-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'nonexistent.user@innovate.dev',
+        }),
+      });
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === true, 'Expected generic success');
+      assert(body.message.includes('If the account exists'), 'Expected anti-enumeration generic message');
+    });
+
+    await testCase('POST /api/auth/verify-email-otp rejects expired OTP', async () => {
+      // Artificially set expiration to the past in database
+      const user = await db.getUserByEmail('jane.doe@innovate.dev');
+      assert(Boolean(user), 'Expected user');
+      await db.updateUser(user!.id, {
+        emailOtpExpiresAt: new Date(Date.now() - 1000).toISOString(),
+      });
+
+      const res = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'jane.doe@innovate.dev',
+          otp: EmailService.getLastSentOtpForTest('jane.doe@innovate.dev') || '123456',
+        }),
+      });
+      assert(res.status === 400, `Expected 400 for expired OTP, got ${res.status}`);
+    });
+
+    await testCase('POST /api/auth/verify-email-otp enforces maximum verification attempts (5 attempts)', async () => {
+      // Re-arm user with fresh OTP
+      const freshOtp = '654321';
+      const hash = await EmailService.hashOtp(freshOtp);
+      const user = await db.getUserByEmail('jane.doe@innovate.dev');
+      await db.updateUser(user!.id, {
+        emailOtpHash: hash,
+        emailOtpExpiresAt: new Date(Date.now() + 600000).toISOString(),
+        emailOtpAttempts: 4, // 4 prior failed attempts
+      });
+
+      // 5th failed attempt should trigger attempt limit exceeded
+      const res = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'jane.doe@innovate.dev',
+          otp: '111111',
+        }),
+      });
+      assert(res.status === 400, `Expected 400, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.message.toLowerCase().includes('maximum') || body.message.toLowerCase().includes('exceeded') || body.message.toLowerCase().includes('invalid'), 'Expected attempt limit or invalid notice');
+    });
+
+    await testCase('POST /api/auth/verify-email-otp verifies valid OTP, activates account, and issues token', async () => {
+      // Set a valid OTP for Jane Doe
+      const validOtp = '987654';
+      const hash = await EmailService.hashOtp(validOtp);
+      const user = await db.getUserByEmail('jane.doe@innovate.dev');
+      await db.updateUser(user!.id, {
+        emailOtpHash: hash,
+        emailOtpExpiresAt: new Date(Date.now() + 600000).toISOString(),
+        emailOtpAttempts: 0,
+      });
+
+      const res = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'jane.doe@innovate.dev',
+          otp: validOtp,
+        }),
+      });
+      assert(res.status === 200, `Expected 200 for valid OTP, got ${res.status}`);
+      const body: any = await res.json();
+      assert(Boolean(body.data.token), 'Expected JWT token issued upon verification');
+      assert(body.data.user.email === 'jane.doe@innovate.dev', 'Expected user email');
+      authToken = body.data.token;
+
+      // Verify user in DB is marked verified
+      const verifiedDbUser = await db.getUserByEmail('jane.doe@innovate.dev');
+      assert(verifiedDbUser?.isEmailVerified === true, 'Expected isEmailVerified true in DB');
+      assert(verifiedDbUser?.emailOtpHash === null, 'Expected emailOtpHash invalidated');
+    });
+
+    await testCase('POST /api/auth/verify-email-otp rejects reused OTP (single-use enforcement)', async () => {
+      const res = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'jane.doe@innovate.dev',
+          otp: '987654',
+        }),
+      });
+      assert(res.status === 400, `Expected 400 for already used OTP, got ${res.status}`);
+    });
+
+    await testCase('POST /api/auth/login allows verified user and issues JWT token', async () => {
       const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -456,6 +630,7 @@ async function runTests() {
       assert(res.status === 200, `Expected 200, got ${res.status}`);
       const body: any = await res.json();
       assert(Boolean(body.data.token), 'Expected token');
+      authToken = body.data.token;
     });
 
     await testCase('POST /api/auth/login rejects invalid password with 401', async () => {
@@ -507,7 +682,20 @@ async function runTests() {
           password: 'password123',
         }),
       });
-      const juniorData: any = await juniorReg.json();
+      assert(juniorReg.status === 201, 'Expected 201 for junior registration');
+      const juniorOtp = EmailService.getLastSentOtpForTest('junior.dev@innovate.dev') || '123456';
+
+      // Verify junior developer's email
+      const verifyJunior = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'junior.dev@innovate.dev',
+          otp: juniorOtp,
+        }),
+      });
+      assert(verifyJunior.status === 200, 'Expected 200 for junior verification');
+      const juniorData: any = await verifyJunior.json();
       const juniorToken = juniorData.data.token;
 
       // 4. Junior attempt on verify-lead -> 403 Forbidden
@@ -926,8 +1114,214 @@ async function runTests() {
       assert(checkRes.status === 404, `Expected 404 after deletion, got ${checkRes.status}`);
     });
 
+    // =========================================================================
+    // 14. Team Member Linking & Invitation Workflow Tests
+    // =========================================================================
+    let createdInvId = '';
+
+    await testCase('POST /api/users/invite rejects non-existent user accounts with 404', async () => {
+      const res = await fetch(`${BASE_URL}/users/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Ghost User',
+          email: 'ghost.user.nonexistent@dmetrics.dev',
+          role: 'Backend Engineer',
+        }),
+      });
+      assert(res.status === 404, `Expected 404 Not Found, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === false, 'Expected success false');
+      assert(body.message.includes('This user must create an account before they can be invited.'), `Expected account creation error, got: ${body.message}`);
+    });
+
+    await testCase('POST /api/team/invitations rejects non-existent user accounts with 404', async () => {
+      const res = await fetch(`${BASE_URL}/team/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'nonexistent.invitation@dmetrics.dev',
+          name: 'Nonexistent Dev',
+          role: 'Staff Software Engineer',
+        }),
+      });
+      assert(res.status === 404, `Expected 404 Not Found, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === false, 'Expected success false');
+      assert(body.message.includes('This user must create an account before they can be invited.'), `Expected account creation error, got: ${body.message}`);
+    });
+
+    // Register a valid user for invitation testing
+    let registeredEmail = 'test.member@innovate.dev';
+    await testCase('POST /api/auth/register creates user account for invitation testing', async () => {
+      const res = await fetch(`${BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Test Member',
+          email: registeredEmail,
+          password: 'Password123!',
+          role: 'Staff Software Engineer',
+          username: 'test_member_dev',
+        }),
+      });
+      assert(res.status === 201, `Expected 201 Created, got ${res.status}`);
+    });
+
+    await testCase('POST /api/team/invitations creates pending invitation for existing user', async () => {
+      const res = await fetch(`${BASE_URL}/team/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: registeredEmail,
+          name: 'Test Member',
+          role: 'Staff Software Engineer',
+          username: 'test_member_dev',
+          projectId: 'proj_1',
+        }),
+      });
+      assert(res.status === 201, `Expected 201 Created, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === true, 'Expected success true');
+      assert(Boolean(body.data.id), 'Expected invitation id');
+      assert(body.data.inviteeEmail === registeredEmail, 'Expected matching inviteeEmail');
+      assert(body.data.status === 'pending', 'Expected status pending');
+      createdInvId = body.data.id;
+    });
+
+    await testCase('GET /api/team/invitations returns invitations list', async () => {
+      const res = await fetch(`${BASE_URL}/team/invitations`);
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(Array.isArray(body.data), 'Expected array of invitations');
+      assert(body.data.some((inv: any) => inv.id === createdInvId), 'Expected created invitation in list');
+    });
+
+    await testCase('GET /api/team/invitations/:id retrieves single invitation', async () => {
+      const res = await fetch(`${BASE_URL}/team/invitations/${createdInvId}`);
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.data.id === createdInvId, 'Expected matching invitation id');
+      assert(body.data.role === 'Staff Software Engineer', 'Expected role in invitation');
+    });
+
+    await testCase('POST /api/team/invitations/:id/accept accepts invitation and updates status', async () => {
+      const res = await fetch(`${BASE_URL}/team/invitations/${createdInvId}/accept`, {
+        method: 'POST',
+      });
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.data.status === 'accepted', 'Expected status accepted');
+      assert(Boolean(body.data.acceptedAt), 'Expected acceptedAt timestamp');
+    });
+
+    // Register second user for revoke test
+    let revokeEmail = 'revoke.target@innovate.dev';
+    await testCase('POST /api/auth/register creates second user for revocation test', async () => {
+      const res = await fetch(`${BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Revoke Target',
+          email: revokeEmail,
+          password: 'Password123!',
+          role: 'QA Engineer',
+          username: 'revoke_target_dev',
+        }),
+      });
+      assert(res.status === 201, `Expected 201 Created, got ${res.status}`);
+    });
+
+    await testCase('POST /api/team/invitations creates second invitation for revocation test', async () => {
+      const res = await fetch(`${BASE_URL}/team/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: revokeEmail,
+          name: 'Revoke Target',
+          role: 'QA Engineer',
+        }),
+      });
+      assert(res.status === 201, `Expected 201, got ${res.status}`);
+      const body: any = await res.json();
+      const invToRevoke = body.data.id;
+
+      const revokeRes = await fetch(`${BASE_URL}/team/invitations/${invToRevoke}/revoke`, {
+        method: 'POST',
+      });
+      assert(revokeRes.status === 200, `Expected 200, got ${revokeRes.status}`);
+
+      const checkRes = await fetch(`${BASE_URL}/team/invitations/${invToRevoke}`);
+      const checkBody: any = await checkRes.json();
+      assert(checkBody.data.status === 'revoked', 'Expected status revoked');
+    });
+
+    // Register third user for direct invite test
+    let directInviteEmail = 'direct.teammate@innovate.dev';
+    await testCase('POST /api/auth/register creates third user for direct onboarding test', async () => {
+      const res = await fetch(`${BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Direct Teammate',
+          email: directInviteEmail,
+          password: 'Password123!',
+          role: 'Backend Engineer',
+          username: 'direct_teammate_dev',
+        }),
+      });
+      assert(res.status === 201, `Expected 201 Created, got ${res.status}`);
+    });
+
+    let directUserId = '';
+    await testCase('POST /api/users/invite onboard existing user directly into workspace', async () => {
+      const res = await fetch(`${BASE_URL}/users/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Direct Teammate',
+          email: directInviteEmail,
+          role: 'Backend Engineer',
+          projectId: 'proj_1',
+        }),
+      });
+      assert(res.status === 201, `Expected 201, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === true, 'Expected success true');
+      assert(Boolean(body.data.user.id), 'Expected user id');
+      assert(Boolean(body.data.invitation), 'Expected invitation attached');
+      directUserId = body.data.user.id;
+    });
+
+    await testCase('POST /api/users/invite rejects duplicate member invitation with 400', async () => {
+      const res = await fetch(`${BASE_URL}/users/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Direct Teammate',
+          email: directInviteEmail,
+          role: 'Backend Engineer',
+          projectId: 'proj_1',
+        }),
+      });
+      assert(res.status === 400, `Expected 400 Bad Request, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.success === false, 'Expected success false');
+      assert(body.message.includes('This user is already a member of your team.'), `Expected duplicate error, got: ${body.message}`);
+    });
+
+    await testCase('DELETE /api/team/members/:memberId removes member from team', async () => {
+      const delRes = await fetch(`${BASE_URL}/team/members/${directUserId}`, {
+        method: 'DELETE',
+      });
+      assert(delRes.status === 200, `Expected 200, got ${delRes.status}`);
+    });
+
 
   } finally {
+    try {
+      await (db as any).resetData([], [], [], [], [], []);
+    } catch {}
     await new Promise<void>((resolve) => {
       server.close(() => {
         console.log('🛑 Test server stopped.');

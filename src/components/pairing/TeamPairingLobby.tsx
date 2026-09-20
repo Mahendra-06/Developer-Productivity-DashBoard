@@ -36,10 +36,13 @@ export const TeamPairingLobby: React.FC = () => {
   const { 
     user, 
     teamMembers, 
+    teamInvitations,
     projects, 
     tasks, 
     openCreateModal,
-    removeTeamMember
+    removeTeamMember,
+    acceptTeamInvitation,
+    revokeTeamInvitation
   } = useDashboard();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -50,6 +53,8 @@ export const TeamPairingLobby: React.FC = () => {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<Assignee | null>(null);
   const [isRemoving, setIsRemoving] = useState<boolean>(false);
+
+  const pendingInvitations = useMemo(() => (teamInvitations || []).filter(inv => inv.status === 'pending'), [teamInvitations]);
 
   // Compute all unique engineering roles across members
   const availableRoles = useMemo(() => {
@@ -281,6 +286,68 @@ export const TeamPairingLobby: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Pending Team Invitations (if any exist) */}
+      {pendingInvitations.length > 0 && (
+        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <h3 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                Pending Team Invitations ({pendingInvitations.length})
+              </h3>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pendingInvitations.map(inv => {
+              const assignedProj = projects.find(p => p.id === inv.projectId);
+              const isInvitedMe = user && (user.email.toLowerCase() === inv.inviteeEmail.toLowerCase());
+
+              return (
+                <div key={inv.id} className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white truncate">
+                        {inv.inviteeName || inv.inviteeEmail}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                        Pending
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-mono truncate">{inv.inviteeEmail}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-1">
+                      <span>Role: {inv.role || 'Engineer'}</span>
+                      {assignedProj && <span>• {assignedProj.name}</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80">
+                    {isInvitedMe && (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => acceptTeamInvitation(inv.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white gap-1 py-1 text-xs"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Accept</span>
+                      </Button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => revokeTeamInvitation(inv.id)}
+                      className="px-2.5 py-1 text-[11px] font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Team Roster Grid */}
       {filteredMembers.length === 0 ? (

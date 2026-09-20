@@ -7,7 +7,7 @@ interface ProjectsHealthMeshProps {
 }
 
 export const ProjectsHealthMesh: React.FC<ProjectsHealthMeshProps> = ({ onNavigateToProjects }) => {
-  const { projects, tasks } = useDashboard();
+  const { projects, tasks, openProjectDetails } = useDashboard();
 
   if (projects.length === 0) {
     return null;
@@ -54,7 +54,8 @@ export const ProjectsHealthMesh: React.FC<ProjectsHealthMeshProps> = ({ onNaviga
           return (
             <div
               key={proj.id}
-              className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800/80 hover:border-brand-500/40 transition-all flex flex-col justify-between space-y-3"
+              onClick={() => openProjectDetails(proj)}
+              className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800/80 hover:border-brand-500/40 transition-all flex flex-col justify-between space-y-3 cursor-pointer group"
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -110,17 +111,18 @@ export const ProjectsHealthMesh: React.FC<ProjectsHealthMeshProps> = ({ onNaviga
                     </span>
                   </div>
 
-                  {proj.repoUrl && (
-                    <a
-                      href={proj.repoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-slate-400 hover:text-brand-400 transition-colors flex items-center gap-1 font-mono text-[10px]"
-                    >
-                      <Github className="w-3 h-3" />
-                      <span>Repo</span>
-                    </a>
-                  )}
+                    {proj.repoUrl && (
+                      <a
+                        href={proj.repoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-slate-400 hover:text-brand-400 transition-colors flex items-center gap-1 font-mono text-[10px]"
+                      >
+                        <Github className="w-3 h-3" />
+                        <span>Repo</span>
+                      </a>
+                    )}
                 </div>
               </div>
             </div>

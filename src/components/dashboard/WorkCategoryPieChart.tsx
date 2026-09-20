@@ -30,7 +30,7 @@ export const WorkCategoryPieChart: React.FC = () => {
     let secCount = 0;
 
     for (const t of tasks) {
-      const pts = t.storyPoints || 3;
+      const pts = t.storyPoints || 1;
       const allText = `${t.title} ${t.description || ''} ${t.tags?.join(' ') || ''}`.toLowerCase();
 
       if (allText.includes('sec') || allText.includes('auth') || allText.includes('jwt') || allText.includes('audit') || allText.includes('guard')) {

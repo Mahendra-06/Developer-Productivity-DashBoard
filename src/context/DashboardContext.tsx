@@ -16,7 +16,8 @@ import {
   PullRequestItem,
   DeploymentItem,
   GitHubTeamMemberMapping,
-  GitHubSyncConfig
+  GitHubSyncConfig,
+  TeamInvitation
 } from '../types';
 import { Assignee } from '../types';
 import { computeMetricsForTimeframe } from '../utils/metrics';
@@ -30,6 +31,7 @@ export interface DashboardContextType {
   projects: Project[];
   user: UserProfile;
   teamMembers: Assignee[];
+  teamInvitations: TeamInvitation[];
   analytics: any;
   auditEvents: any[];
   filters: FilterState;
@@ -76,10 +78,12 @@ export interface DashboardContextType {
     status?: ProjectStatus;
     repoUrl?: string;
   }) => Promise<Project>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<Project>;
 
   // Modal Actions
   preselectedAssigneeId: string | null;
-  openCreateModal: (initialAssigneeId?: string | any) => void;
+  preselectedProjectId: string | null;
+  openCreateModal: (initialAssigneeId?: string | any, initialProjectId?: string) => void;
   openEditModal: (task: Task) => void;
   closeTaskModal: () => void;
   isAuthModalOpen: boolean;
@@ -90,6 +94,9 @@ export interface DashboardContextType {
   // User & Integration Actions
   isAuthChecking: boolean;
   isAuthenticated: boolean;
+  pendingVerificationEmail: string | null;
+  verifyEmailOtp: (otp: string) => Promise<void>;
+  resendEmailOtp: () => Promise<{ cooldownSeconds?: number } | void>;
   loginUser: (credentials: { login: string; password: string }) => Promise<void>;
   registerUser: (userData: any) => Promise<void>;
   addTeamMember: (memberData: {
@@ -104,6 +111,8 @@ export interface DashboardContextType {
     storyPoints?: number;
   }) => Promise<Assignee>;
   removeTeamMember: (memberId: string) => Promise<void>;
+  acceptTeamInvitation: (invitationId: string) => Promise<void>;
+  revokeTeamInvitation: (invitationId: string) => Promise<void>;
   logoutUser: () => void;
   setUser: React.Dispatch<React.SetStateAction<UserProfile>>;
   updateUser: (updated: Partial<UserProfile>) => void;
@@ -143,9 +152,13 @@ export interface DashboardContextType {
   // Inspector & Deep Link State
   inspectedPR: PullRequestItem | null;
   inspectedDeployment: DeploymentItem | null;
+  inspectedProject: Project | null;
+  inspectedProjectId: string | null;
   deployments: DeploymentItem[];
   openPRInspector: (prOrId: PullRequestItem | string) => void;
   openDeploymentDetails: (depOrId: DeploymentItem | string) => void;
+  openProjectDetails: (projectOrId: Project | string) => void;
+  closeProjectDetails: () => void;
   openTaskDetails: (taskOrId: Task | string) => void;
   closeInspectors: () => void;
 }
@@ -216,6 +229,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [teamMembers, setTeamMembers] = useState<Assignee[]>(DEFAULT_TEAM_MEMBERS);
+  const [teamInvitations, setTeamInvitations] = useState<TeamInvitation[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [auditEvents, setAuditEvents] = useState<any[]>([]);
   const [prs, setPrs] = useState<PullRequestItem[]>([]);
@@ -223,10 +237,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [inspectedPR, setInspectedPR] = useState<PullRequestItem | null>(null);
   const [inspectedDeployment, setInspectedDeployment] = useState<DeploymentItem | null>(null);
 
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(() => {
+    return localStorage.getItem('dmetrics_pending_verification_email');
+  });
+
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const isExplicitlyLoggedOut = localStorage.getItem('dmetrics_logged_out') === 'true';
     if (isExplicitlyLoggedOut) return false;
+    if (localStorage.getItem('dmetrics_pending_verification_email')) return false;
     return Boolean(localStorage.getItem('dmetrics_token'));
   });
 
@@ -241,7 +260,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (saved && token) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.id !== 'usr_1' && parsed.name !== 'Alex Chen' && !parsed.id?.startsWith('usr_gh_')) {
+        if (parsed.id && parsed.id !== 'usr_guest') {
           return { ...DEFAULT_USER, ...parsed };
         }
       } catch (e) {
@@ -255,6 +274,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Authenticated users fetch personal data scoped to their ID
   // Team Lobby users list remains unscoped (shared across all users)
   const fetchScopedData = async (authenticatedUser?: UserProfile | null) => {
+    // Purge legacy cross-account and mock PR caches
+    try {
+      localStorage.removeItem('dmetrics_prs_default');
+      localStorage.removeItem('dmetrics_prs');
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('dmetrics_prs')) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (e) {}
+
     const token = localStorage.getItem('dmetrics_token');
     const hasAuth = Boolean(token);
     const effectiveUser = authenticatedUser || (hasAuth ? user : null);
@@ -268,7 +298,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         backendAnalytics,
         backendPrs,
         backendAudit,
-        backendDeployments
+        backendDeployments,
+        backendInvitations
       ] = await Promise.allSettled([
         api.getTasks({ scope: 'team' }),
         api.getProjects({ scope: 'team' }),
@@ -277,6 +308,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         api.getPullRequests({ scope: 'team' }),
         api.getAuditEvents(scopeFilter),
         api.getDeployments(),
+        hasAuth ? api.getTeamInvitations() : Promise.resolve([]),
       ]);
 
 
@@ -300,13 +332,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               assigner = proj.lead;
             } else {
               const otherTeammate = usersList.find((u: any) => u.id !== assigneeId && !u.id?.startsWith('usr_gh_'));
-              assigner = otherTeammate || {
-                id: 'usr_1',
-                name: 'Alex Chen',
-                username: 'alexchen-dev',
-                avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                role: 'Staff Platform Engineer'
-              };
+              assigner = otherTeammate || undefined;
             }
           }
           return {
@@ -425,43 +451,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setAnalytics(null);
       }
 
+      // Purge legacy cross-account PR caches
+      try {
+        localStorage.removeItem('dmetrics_prs_default');
+        localStorage.removeItem('dmetrics_prs');
+      } catch (e) {}
+
       let currentPrs: PullRequestItem[] = [];
       if (backendPrs.status === 'fulfilled' && Array.isArray(backendPrs.value)) {
         currentPrs = backendPrs.value;
       }
 
-      // Also restore any cached PRs from localStorage so browser reload never loses synced PRs
-      try {
-        const cacheKey = `dmetrics_prs_${effectiveUser?.id || 'default'}`;
-        const cachedStr = localStorage.getItem(cacheKey) || localStorage.getItem('dmetrics_prs_default');
-        if (cachedStr) {
-          const cachedPrs: PullRequestItem[] = JSON.parse(cachedStr);
-          if (Array.isArray(cachedPrs) && cachedPrs.length > 0) {
-            const existingMap = new Map(currentPrs.map(p => [p.id, p]));
-            cachedPrs.forEach(cPr => {
-              const existing = existingMap.get(cPr.id) || currentPrs.find(p => (p.number && p.number === cPr.number) || (p.projectId && p.projectId === cPr.projectId));
-              if (existing) {
-                // If either backend or cache was approved, maintain approved status
-                if (cPr.isReviewed && !existing.isReviewed) {
-                  existing.isReviewed = true;
-                  existing.reviewedBy = cPr.reviewedBy;
-                  existing.turnaroundHours = cPr.turnaroundHours || existing.turnaroundHours;
-                }
-              } else {
-                currentPrs.push(cPr);
-                existingMap.set(cPr.id, cPr);
-              }
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('PR cache restore note:', e);
-      }
-
-      // Do not restore legacy synthetic PRs for internal personal task workspaces.
+      // Filter out any legacy synthetic or mock PRs
       currentPrs = currentPrs.filter(pr =>
         !pr.title?.toUpperCase().startsWith('[PERSONAL-') &&
-        !pr.repo?.toLowerCase().startsWith('dmetrics/personal-')
+        !pr.repo?.toLowerCase().startsWith('dmetrics/personal-') &&
+        !pr.title?.includes('Feature Architecture & CI/CD Pipeline Setup') &&
+        !pr.id?.startsWith('pr_proj_')
       );
 
       let currentDeployments: DeploymentItem[] = [];
@@ -470,112 +476,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentDeployments = Array.isArray(dVal) ? dVal : (dVal?.deployments || []);
       }
 
-      // CI/CD Reactive Linkage: Ensure every project has linked PR reviews and deployments
-      if (mappedProjects.length > 0) {
-        const syntheticPrs: PullRequestItem[] = [];
-        const syntheticDeps: DeploymentItem[] = [];
-
-        mappedProjects.forEach(p => {
-          const repoName = p.repoUrl 
-            ? p.repoUrl.replace(/^https?:\/\/github\.com\//, '') 
-            : `dmetrics/${p.key.toLowerCase()}`;
-
-          const hasPR = currentPrs.some(pr => 
-            pr.id === `pr_proj_${p.id}` ||
-            pr.projectId === p.id ||
-            pr.repo?.toLowerCase() === repoName.toLowerCase() || 
-            pr.title?.toUpperCase().includes(p.key.toUpperCase()) ||
-            pr.branch?.toLowerCase().includes(p.key.toLowerCase())
-          );
-
-          if (!hasPR) {
-            const num = (Math.abs(p.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
-            const prAuthor = p.lead || effectiveUser || DEFAULT_USER;
-            const isTeam = (p.projectType || 'team') === 'team';
-            const isMe = Boolean(prAuthor.id === effectiveUser?.id || prAuthor.name === effectiveUser?.name);
-            const queueType = isMe ? 'authored_by_me' : 'review_requested';
-            const teamReviewers = isTeam 
-              ? (Array.isArray(p.team) ? p.team.filter(m => m.id !== prAuthor.id && m.name !== prAuthor.name).slice(0, 3) : [])
-              : [];
-
-            const newSyntheticPr: PullRequestItem = {
-              id: `pr_proj_${p.id}`,
-              number: num,
-              title: `[${p.key}] Feature Architecture & CI/CD Pipeline Setup`,
-              repo: repoName,
-              branch: `feat/${p.key.toLowerCase()}-pipeline-arch`,
-              author: prAuthor,
-              additions: 380,
-              deletions: 18,
-              filesChangedCount: 5,
-              commentsCount: 1,
-              ciStatus: 'passing',
-              waitingHours: 0.8,
-              slaStatus: 'healthy',
-              isReviewed: false,
-              isMerged: false,
-              queueType,
-              projectId: p.id,
-              projectType: isTeam ? 'team' : 'individual',
-              diffSnippet: `+ // ${p.name} - Continuous Integration & Delivery Automation\n+ export const projectConfig = {\n+   id: '${p.id}',\n+   key: '${p.key}',\n+   ciPipeline: 'github-actions-active'\n+ };`,
-              aiInsights: {
-                summary: `Architecture baseline and CI/CD workflow definition for ${p.name}. Verified and ready for peer review.`,
-                performance: ['Zero latency impact', 'Automated bundle size budgets'],
-                security: ['Zero secret leaks', 'Strict dependency pinning'],
-                testing: ['Unit tests passed (100%)', 'Continuous integration checks green']
-              },
-              reviewers: teamReviewers,
-              createdAt: p.createdAt || new Date().toISOString()
-            };
-
-            syntheticPrs.push(newSyntheticPr);
-            api.createPR(newSyntheticPr).catch(() => {});
-          }
-
-          const hasDep = currentDeployments.some(d => 
-            d.projectId === p.id || 
-            d.serviceName?.toLowerCase() === p.name?.toLowerCase() ||
-            (d.repositoryUrl && d.repositoryUrl === p.repoUrl)
-          );
-
-          if (!hasDep) {
-            syntheticDeps.push({
-              id: `dep_proj_${p.id}`,
-              environment: 'staging',
-              serviceName: p.name,
-              version: 'v0.1.0',
-              commitSha: (Math.abs(p.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) * 719).toString(16).padEnd(7, 'f').slice(0, 7),
-              commitMessage: `feat: initial CI/CD pipeline deployment for ${p.name}`,
-              branch: 'main',
-              repositoryUrl: p.repoUrl || `https://github.com/${repoName}`,
-              projectId: p.id,
-              projectName: p.name,
-              author: {
-                name: p.lead?.name || effectiveUser?.name || 'Developer',
-                avatar: p.lead?.avatar || effectiveUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                email: p.lead?.email || effectiveUser?.email,
-                username: p.lead?.username || effectiveUser?.username
-              },
-              status: 'success',
-              durationSeconds: 42,
-              deployedAt: 'Just now',
-              url: `https://staging-${p.key.toLowerCase()}.dmetrics.internal`,
-              sloPassRate: 100.0,
-              summary: `Automated staging deployment for project ${p.name}`
-            });
-          }
-        });
-
-        currentPrs = [...syntheticPrs, ...currentPrs];
-        currentDeployments = [...syntheticDeps, ...currentDeployments];
-      }
+      // Filter out any legacy synthetic deployments
+      currentDeployments = currentDeployments.filter(d =>
+        !d.id?.startsWith('dep_proj_') &&
+        !d.commitMessage?.includes('initial CI/CD pipeline deployment')
+      );
 
       setPrs(currentPrs);
-      try {
-        const cacheKey = `dmetrics_prs_${effectiveUser?.id || 'default'}`;
-        localStorage.setItem(cacheKey, JSON.stringify(currentPrs));
-      } catch (e) { /* ignore */ }
       setDeployments(currentDeployments);
+
+      if (backendInvitations.status === 'fulfilled' && Array.isArray(backendInvitations.value)) {
+        setTeamInvitations(backendInvitations.value);
+      } else {
+        setTeamInvitations([]);
+      }
 
       if (backendAudit.status === 'fulfilled' && Array.isArray(backendAudit.value)) {
         const sanitizedAudit = backendAudit.value.map(evt => {
@@ -618,6 +532,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setTasks([]);
           setProjects([]);
           setPrs([]);
+          setTeamInvitations([]);
           setAuditEvents([]);
           setAnalytics(null);
           setIsAuthChecking(false);
@@ -626,19 +541,31 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         try {
           const verifiedUser = await api.getMe();
           if (isMounted && verifiedUser) {
-            currentAuthedUser = verifiedUser;
-            setUser(prev => ({ ...prev, ...verifiedUser }));
-            setIsAuthenticated(true);
+            if (verifiedUser.isEmailVerified === false) {
+              setPendingVerificationEmail(verifiedUser.email);
+              localStorage.setItem('dmetrics_pending_verification_email', verifiedUser.email);
+              setIsAuthenticated(false);
+            } else {
+              localStorage.removeItem('dmetrics_pending_verification_email');
+              setPendingVerificationEmail(null);
+              currentAuthedUser = verifiedUser;
+              setUser(prev => ({ ...prev, ...verifiedUser }));
+              setIsAuthenticated(true);
+            }
           }
         } catch {
-          // Token invalid or expired - clear and return to unauthenticated
+          // Token invalid, expired, or forbidden due to unverified email
           if (isMounted) {
-            localStorage.removeItem('dmetrics_token');
+            const savedPending = localStorage.getItem('dmetrics_pending_verification_email');
+            if (!savedPending) {
+              localStorage.removeItem('dmetrics_token');
+            }
             setIsAuthenticated(false);
             setUser(GUEST_USER);
             setTasks([]);
             setProjects([]);
             setPrs([]);
+            setTeamInvitations([]);
             setAuditEvents([]);
             setAnalytics(null);
           }
@@ -729,7 +656,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAnalytics(null);
 
     const res = await api.login(credentials);
-    if (res && res.user) {
+    if (res && res.requiresEmailVerification) {
+      const email = res.email || credentials.login;
+      setPendingVerificationEmail(email);
+      localStorage.setItem('dmetrics_pending_verification_email', email);
+      toast.info('Please verify your email with the OTP sent to your inbox', 'Verification Required');
+      return;
+    }
+
+    if (res && res.user && res.token) {
+      localStorage.removeItem('dmetrics_pending_verification_email');
+      setPendingVerificationEmail(null);
       setUser(res.user);
       setIsAuthenticated(true);
       toast.success(`Signed in as ${res.user.name}`, 'JWT Authenticated');
@@ -747,7 +684,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAnalytics(null);
 
     const res = await api.register(userData);
-    if (res && res.user) {
+    if (res && (res.requiresEmailVerification || !res.token)) {
+      const email = res.email || userData.email;
+      setPendingVerificationEmail(email);
+      localStorage.setItem('dmetrics_pending_verification_email', email);
+      toast.info('Registration successful! Please check your email for the verification OTP', 'Verification Required');
+      return;
+    }
+
+    if (res && res.user && res.token) {
+      localStorage.removeItem('dmetrics_pending_verification_email');
+      setPendingVerificationEmail(null);
       setUser(res.user);
       setIsAuthenticated(true);
       toast.success(`Welcome to DMetrics, ${res.user.name}!`, 'Developer Identity Created');
@@ -755,16 +702,47 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const verifyEmailOtp = async (otp: string) => {
+    if (!pendingVerificationEmail) throw new Error('No pending email verification address found.');
+    const res = await api.verifyEmailOtp({ email: pendingVerificationEmail, otp });
+    if (res && res.user && res.token) {
+      localStorage.removeItem('dmetrics_pending_verification_email');
+      setPendingVerificationEmail(null);
+      setUser(res.user);
+      setIsAuthenticated(true);
+      toast.success(`Email verified! Welcome to DMetrics, ${res.user.name}`, 'Verified');
+      await fetchScopedData(res.user);
+    }
+  };
+
+  const resendEmailOtp = async (): Promise<{ cooldownSeconds?: number } | void> => {
+    if (!pendingVerificationEmail) throw new Error('No pending email verification address found.');
+    const res = await api.resendEmailOtp(pendingVerificationEmail);
+    toast.info('A fresh verification code has been dispatched to your email', 'OTP Dispatched');
+    return res;
+  };
+
   const logoutUser = () => {
     api.logout();
     socketService.disconnect();
     localStorage.setItem('dmetrics_logged_out', 'true');
+    localStorage.removeItem('dmetrics_pending_verification_email');
     localStorage.removeItem('dmetrics_user');
     localStorage.removeItem('dmetrics_tasks');
     localStorage.removeItem('dmetrics_projects');
     localStorage.removeItem('dmetrics_analytics');
     localStorage.removeItem('dmetrics_token');
+    localStorage.removeItem('dmetrics_prs_default');
+    localStorage.removeItem('dmetrics_prs');
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('dmetrics_prs')) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (e) {}
 
+    setPendingVerificationEmail(null);
     setIsAuthenticated(false);
     setUser(GUEST_USER);
     setTasks([]);
@@ -783,6 +761,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isTaskModalOpen, setIsTaskModalOpen] = useState<boolean>(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [preselectedAssigneeId, setPreselectedAssigneeId] = useState<string | null>(null);
+  const [preselectedProjectId, setPreselectedProjectId] = useState<string | null>(null);
+  const [inspectedProject, setInspectedProject] = useState<Project | null>(null);
+  const [inspectedProjectId, setInspectedProjectId] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
 
@@ -821,9 +802,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         t.projectName?.toLowerCase() === p.name?.toLowerCase() ||
         (p.key && t.key?.toUpperCase().startsWith(p.key.toUpperCase()))
       );
-      const total = pTasks.length > 0 ? pTasks.length : (p.totalTasks > 0 ? p.totalTasks : 5);
-      const completed = pTasks.length > 0 ? pTasks.filter(t => t.status === 'done').length : (p.completedTasks > 0 ? p.completedTasks : 3);
-      const progress = total > 0 ? Math.round((completed / total) * 100) : (p.progress || 60);
+      const total = pTasks.length > 0 ? pTasks.length : (p.totalTasks || 0);
+      const completed = pTasks.length > 0 ? pTasks.filter(t => t.status === 'done').length : (p.completedTasks || 0);
+      const progress = total > 0 ? Math.round((completed / total) * 100) : (p.progress || 0);
       return {
         ...p,
         totalTasks: total,
@@ -1271,68 +1252,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Optimistically add to project state
     setProjects(prev => [optimisticProject, ...prev]);
 
-    const repoName = projectData.repoUrl 
-      ? projectData.repoUrl.replace(/^https?:\/\/github\.com\//, '') 
-      : `dmetrics/${cleanKey.toLowerCase()}`;
-
-    // 1. Continuous Integration: Automatically provision initial review PR for this new project repository
-    const initialPR: PullRequestItem = {
-      id: `pr_proj_${tempId}`,
-      number: (Math.abs(cleanKey.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % 800) + 100,
-      title: `[${cleanKey}] Feature Architecture & CI/CD Pipeline Setup`,
-      repo: repoName,
-      branch: `feat/${cleanKey.toLowerCase()}-pipeline-arch`,
-      author: lead || user,
-      additions: 380,
-      deletions: 18,
-      filesChangedCount: 5,
-      commentsCount: 1,
-      ciStatus: 'passing',
-      waitingHours: 0.5,
-      slaStatus: 'healthy',
-      isReviewed: false,
-      isMerged: false,
-      queueType: 'review_requested',
-      diffSnippet: `+ // ${projectData.name} - Automated CI/CD Pipeline Setup\n+ export const projectConfig = {\n+   key: '${cleanKey}',\n+   environment: 'staging'\n+ };`,
-      aiInsights: {
-        summary: `Automated baseline architecture & CI pipeline PR initialized for project ${projectData.name}.`,
-        performance: ['Optimal build pipelines configured', 'Sub-second cold starts'],
-        security: ['Secret scanner and branch protection enabled', 'Strict lint rules'],
-        testing: ['Test runners initialized and passing (100%)']
-      },
-      reviewers: teamMembersList.filter(m => m.id !== lead?.id).slice(0, 2),
-      createdAt: new Date().toISOString()
-    };
-    setPrs(prev => [initialPR, ...prev]);
-
-    // 2. Continuous Delivery: Automatically provision initial Staging deployment
-    const initialDeployment: DeploymentItem = {
-      id: `dep_proj_${tempId}`,
-      environment: 'staging',
-      serviceName: projectData.name,
-      version: 'v0.1.0',
-      commitSha: Math.random().toString(16).substring(2, 9),
-      commitMessage: `feat: initial CI/CD pipeline deployment for ${projectData.name}`,
-      branch: 'main',
-      repositoryUrl: projectData.repoUrl || `https://github.com/${repoName}`,
-      projectId: tempId,
-      projectName: projectData.name,
-      author: {
-        name: user.name,
-        avatar: user.avatar,
-        email: user.email,
-        username: user.username
-      },
-      status: 'success',
-      durationSeconds: 42,
-      deployedAt: 'Just now',
-      url: `https://staging-${cleanKey.toLowerCase()}.dmetrics.internal`,
-      sloPassRate: 100.0,
-      summary: `Automated staging deployment for ${projectData.name}`
-    };
-    setDeployments(prev => [initialDeployment, ...prev]);
-
-    toast.success(`Project ${cleanKey} created with CI/CD pipeline & review queue! 🚀`, 'Repository Initialized');
+    toast.success(`Project ${cleanKey} created successfully! 🚀`, 'Project Initialized');
 
     try {
       const serverProject = await api.createProject({
@@ -1347,10 +1267,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status: projectData.status || 'on_track',
         repoUrl: projectData.repoUrl || '',
       });
-
-      // Persist the linked PR & deployment to backend
-      api.createPR({ ...initialPR, id: `pr_proj_${serverProject.id}` }).catch(e => console.warn('PR save note:', e));
-      api.createDeployment({ ...initialDeployment, projectId: serverProject.id }).catch(e => console.warn('Deployment save note:', e));
 
       // Real-time audit event
       setAuditEvents(prev => [{
@@ -1395,42 +1311,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ? `https://github.com/${memberData.githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '')}.png`
       : `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanUsername || memberData.name || 'dev')}`;
 
-    let createdId = `usr_${Date.now()}`;
+    const inviteRes = await api.inviteTeamMember({
+      name: memberData.name.trim(),
+      email: cleanEmail,
+      username: cleanUsername,
+      role: memberData.role,
+      githubUsername: memberData.githubUsername?.trim() || undefined,
+      projectId: memberData.projectId,
+    });
 
-    try {
-      const inviteRes = await api.inviteTeamMember({
-        name: memberData.name.trim(),
-        email: cleanEmail,
-        username: cleanUsername,
-        role: memberData.role,
-        password: memberData.password || 'password123',
-        githubUsername: memberData.githubUsername?.trim() || undefined,
-        projectId: memberData.projectId,
-      });
+    const targetUser = inviteRes.user;
+    const createdId = targetUser.id || `usr_${Date.now()}`;
 
-      if (inviteRes && inviteRes.user) {
-        createdId = inviteRes.user.id || createdId;
-      }
-    } catch (err: any) {
-      console.warn('Backend user invitation note, attempting register fallback:', err);
-      try {
-        const regRes = await api.register({
-          name: memberData.name.trim(),
-          email: cleanEmail,
-          username: cleanUsername,
-          role: memberData.role,
-          password: memberData.password || 'password123',
-          avatar,
-          githubUsername: memberData.githubUsername?.trim() || undefined,
-          invitedBy: user?.id,
-        } as any);
-
-        if (regRes && regRes.user) {
-          createdId = regRes.user.id || createdId;
-        }
-      } catch (regErr: any) {
-        console.warn('Fallback register notice:', regErr);
-      }
+    if (inviteRes.invitation) {
+      setTeamInvitations(prev => [inviteRes.invitation!, ...prev.filter(i => i.id !== inviteRes.invitation!.id)]);
     }
 
     if (user?.id) {
@@ -1445,13 +1339,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const newAssignee: Assignee = {
       id: createdId,
-      name: memberData.name.trim(),
+      name: targetUser.name || memberData.name.trim(),
       email: cleanEmail,
-      username: cleanUsername,
-      role: memberData.role,
-      avatar,
-      githubUsername: memberData.githubUsername?.trim()?.replace(/^https?:\/\/github\.com\//i, ''),
-      githubUrl: memberData.githubUsername ? `https://github.com/${memberData.githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '')}` : undefined
+      username: targetUser.username || cleanUsername,
+      role: targetUser.role || memberData.role,
+      avatar: targetUser.avatar || avatar,
+      githubUsername: (targetUser.githubUsername || memberData.githubUsername?.trim())?.replace(/^https?:\/\/github\.com\//i, ''),
+      githubUrl: (targetUser.githubUrl || (memberData.githubUsername ? `https://github.com/${memberData.githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '')}` : undefined))
     };
 
     setTeamMembers(prev => {
@@ -1498,7 +1392,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
     }
 
-    toast.success(`Teammate ${newAssignee.name} onboarded! Credentials: ${newAssignee.email} / password123`, 'Team Member Added');
+    toast.success(`Teammate ${newAssignee.name} linked to your workspace team!`, 'Team Member Added');
     return newAssignee;
   };
 
@@ -1554,17 +1448,43 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const acceptTeamInvitation = async (invitationId: string): Promise<void> => {
+    try {
+      await api.acceptTeamInvitation(invitationId);
+      setTeamInvitations(prev => prev.map(inv => inv.id === invitationId ? { ...inv, status: 'accepted', acceptedAt: new Date().toISOString() } : inv));
+      toast.success('Team invitation accepted! You are now linked with this workspace.', 'Invitation Accepted');
+      await fetchScopedData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to accept team invitation', 'Error');
+      throw err;
+    }
+  };
+
+  const revokeTeamInvitation = async (invitationId: string): Promise<void> => {
+    try {
+      await api.revokeTeamInvitation(invitationId);
+      setTeamInvitations(prev => prev.map(inv => inv.id === invitationId ? { ...inv, status: 'revoked' } : inv));
+      toast.success('Team invitation revoked.', 'Invitation Revoked');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to revoke team invitation', 'Error');
+      throw err;
+    }
+  };
+
   // Modal actions
-  const openCreateModal = (initialAssigneeId?: string | any) => {
+  const openCreateModal = (initialAssigneeId?: string | any, initialProjectId?: string) => {
     setEditingTask(null);
     const validId = typeof initialAssigneeId === 'string' ? initialAssigneeId : null;
+    const validProjId = typeof initialProjectId === 'string' ? initialProjectId : null;
     setPreselectedAssigneeId(validId);
+    setPreselectedProjectId(validProjId);
     setIsTaskModalOpen(true);
   };
 
   const openEditModal = (task: Task) => {
     setEditingTask(task);
     setPreselectedAssigneeId(null);
+    setPreselectedProjectId(null);
     setIsTaskModalOpen(true);
   };
 
@@ -1572,6 +1492,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsTaskModalOpen(false);
     setEditingTask(null);
     setPreselectedAssigneeId(null);
+    setPreselectedProjectId(null);
   };
 
   const openAuthModal = (mode: 'login' | 'register' = 'login') => {
@@ -1659,8 +1580,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: `room_${Date.now()}`,
       title: title.trim() || 'Ad-Hoc Pair Programming Session',
       topic: topic.trim() || 'Architecture & Code Review',
-      host: teamMembers[0], // current user Alex Chen
-      participants: [teamMembers[0]],
+      host: (user as any) || teamMembers[0],
+      participants: [(user as any) || teamMembers[0]].filter(Boolean),
       startedAt: 'Just now',
       isAudioActive: true,
       isScreenSharing: false,
@@ -1785,7 +1706,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           try {
             const cacheKey = `dmetrics_prs_${user?.id || 'default'}`;
             localStorage.setItem(cacheKey, JSON.stringify(next));
-            localStorage.setItem('dmetrics_prs_default', JSON.stringify(next));
           } catch (e) {}
           return next;
         });
@@ -1813,7 +1733,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try {
         const cacheKey = `dmetrics_prs_${user?.id || 'default'}`;
         localStorage.setItem(cacheKey, JSON.stringify(next));
-        localStorage.setItem('dmetrics_prs_default', JSON.stringify(next));
       } catch (e) {}
       return next;
     });
@@ -1855,7 +1774,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           try {
             const cacheKey = `dmetrics_prs_${user?.id || 'default'}`;
             localStorage.setItem(cacheKey, JSON.stringify(next));
-            localStorage.setItem('dmetrics_prs_default', JSON.stringify(next));
           } catch (e) {}
           return next;
         });
@@ -2003,7 +1921,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           try {
             const cacheKey = `dmetrics_prs_${user?.id || 'default'}`;
             localStorage.setItem(cacheKey, JSON.stringify(next));
-            localStorage.setItem('dmetrics_prs_default', JSON.stringify(next));
           } catch (e) {}
           return next;
         });
@@ -2266,9 +2183,48 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const openProjectDetails = (projectOrId: Project | string) => {
+    if (typeof projectOrId === 'object' && projectOrId !== null) {
+      setInspectedProject(projectOrId);
+      setInspectedProjectId(projectOrId.id || projectOrId.key);
+      return;
+    }
+    const clean = String(projectOrId).trim();
+    const found = projects.find(p => p.id === clean || p.key.toUpperCase() === clean.toUpperCase());
+    if (found) {
+      setInspectedProject(found);
+      setInspectedProjectId(found.id);
+    } else {
+      setInspectedProject(null);
+      setInspectedProjectId(clean);
+    }
+  };
+
+  const closeProjectDetails = () => {
+    setInspectedProject(null);
+    setInspectedProjectId(null);
+  };
+
+  const updateProject = async (id: string, updates: Partial<Project>): Promise<Project> => {
+    try {
+      const updated = await api.updateProject(id, updates);
+      setProjects(prev => prev.map(p => (p.id === id || p.key.toUpperCase() === id.toUpperCase()) ? { ...p, ...updated } : p));
+      if (inspectedProject && (inspectedProject.id === id || inspectedProject.key.toUpperCase() === id.toUpperCase())) {
+        setInspectedProject(prev => prev ? { ...prev, ...updated } : updated);
+      }
+      toast.success(`Project ${updated.name} updated successfully!`, 'Project Updated');
+      return updated;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update project', 'Update Error');
+      throw err;
+    }
+  };
+
   const closeInspectors = () => {
     setInspectedPR(null);
     setInspectedDeployment(null);
+    setInspectedProject(null);
+    setInspectedProjectId(null);
   };
 
   const retryFetch = () => {
@@ -2286,13 +2242,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         projects: enrichedProjects,
         user,
         teamMembers,
+        teamInvitations,
         analytics,
         auditEvents,
         deployments,
         inspectedPR,
         inspectedDeployment,
+        inspectedProject,
+        inspectedProjectId,
         openPRInspector,
         openDeploymentDetails,
+        openProjectDetails,
+        closeProjectDetails,
         openTaskDetails,
         closeInspectors,
         filters,
@@ -2303,6 +2264,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isTaskModalOpen,
         editingTask,
         preselectedAssigneeId,
+        preselectedProjectId,
         filteredTasks,
         metrics,
         setTimeRange,
@@ -2315,6 +2277,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateTaskStatus,
         deleteTask,
         addProject,
+        updateProject,
         openCreateModal,
         openEditModal,
         closeTaskModal,
@@ -2324,10 +2287,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         closeAuthModal,
         isAuthChecking,
         isAuthenticated,
+        pendingVerificationEmail,
+        verifyEmailOtp,
+        resendEmailOtp,
         loginUser,
         registerUser,
         addTeamMember,
         removeTeamMember,
+        acceptTeamInvitation,
+        revokeTeamInvitation,
         logoutUser,
         setUser,
         updateUser,

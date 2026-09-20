@@ -10,6 +10,7 @@ import analyticsRoutes from './analyticsRoutes.js';
 import deploymentRoutes from './deploymentRoutes.js';
 import aiRoutes from './aiRoutes.js';
 import githubRoutes from './githubRoutes.js';
+import teamRoutes from './teamRoutes.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.use('/', healthRoutes);
 router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+router.use('/team', teamRoutes);
 router.use('/projects', projectRoutes);
 router.use('/tasks', taskRoutes);
 router.use('/prs', prRoutes);

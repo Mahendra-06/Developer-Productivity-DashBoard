@@ -127,6 +127,7 @@ export interface UserProfile {
   role: string;
   username: string;
   email: string;
+  isEmailVerified?: boolean;
   avatar: string;
   bio?: string;
   location?: string;
@@ -351,5 +352,48 @@ export interface NotificationItem {
   isRead: boolean;
   createdAt: string;
 }
+
+export interface ProjectDetailsMetrics {
+  totalTasks: number;
+  completedTasks: number;
+  tasksByStatus: {
+    backlog: number;
+    in_progress: number;
+    in_review: number;
+    done: number;
+  };
+  openPullRequests: number;
+  deployments: number;
+  progress: number;
+}
+
+export interface ProjectDetails {
+  project: Project;
+  metrics: ProjectDetailsMetrics;
+  tasks: Task[];
+  pullRequests: PullRequestItem[];
+  deployments: DeploymentItem[];
+  recentActivity: any[];
+}
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+export interface TeamInvitation {
+  id: string;
+  inviterId: string;
+  inviteeEmail: string;
+  inviteeName?: string;
+  inviteeUsername?: string;
+  role?: string;
+  githubUsername?: string;
+  projectId?: string;
+  status: InvitationStatus;
+  tokenHash?: string;
+  expiresAt: string;
+  acceptedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 

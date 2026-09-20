@@ -88,7 +88,7 @@ export const PRReviewQueue: React.FC = () => {
     : (analytics?.metricsSummary?.avgReviewTurnaroundHours != null && analytics.metricsSummary.avgReviewTurnaroundHours > 0)
     ? analytics.metricsSummary.avgReviewTurnaroundHours.toFixed(1)
     : null;
-  const avgTurnaround = avgTurnaroundVal ? `${avgTurnaroundVal} hrs` : (prs.length > 0 ? '1.2 hrs' : '--');
+  const avgTurnaround = avgTurnaroundVal ? `${avgTurnaroundVal} hrs` : '--';
 
   const handleApprove = (pr: PullRequestItem) => {
     approvePR(pr.id);

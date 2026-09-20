@@ -10,7 +10,7 @@ import { useToast } from '../../context/ToastContext';
 const AVAILABLE_TAGS = ['Backend', 'Frontend', 'DevOps', 'Security', 'Database', 'Redis', 'Kubernetes', 'WebSockets', 'API', 'UI/UX', 'Performance', 'Testing'];
 
 export const TaskModal: React.FC = () => {
-  const { isTaskModalOpen, closeTaskModal, editingTask, preselectedAssigneeId, addTask, updateTask, projects, teamMembers, user } = useDashboard();
+  const { isTaskModalOpen, closeTaskModal, editingTask, preselectedAssigneeId, preselectedProjectId, addTask, updateTask, projects, teamMembers, user } = useDashboard();
   const { toast } = useToast();
 
   const [title, setTitle] = useState('');
@@ -80,7 +80,7 @@ export const TaskModal: React.FC = () => {
       // Defaults for new task
       setTitle('');
       setDescription('');
-      setProjectId(projects[0]?.id || '');
+      setProjectId(preselectedProjectId || projects[0]?.id || '');
       setStatus('in_progress');
       setPriority('high');
       setAssigneeId(preselectedAssigneeId || user?.id || teamMembers[0]?.id || 'usr_1');
@@ -89,7 +89,7 @@ export const TaskModal: React.FC = () => {
       setSelectedTags(['Backend', 'Performance']);
     }
     setError('');
-  }, [editingTask, preselectedAssigneeId, isTaskModalOpen, projects, user]);
+  }, [editingTask, preselectedAssigneeId, preselectedProjectId, isTaskModalOpen, projects, user]);
 
   const handleToggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {

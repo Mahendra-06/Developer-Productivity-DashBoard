@@ -47,6 +47,23 @@ export const updateUserSchema = createUserSchema.partial().refine(
   { message: 'At least one field must be provided for update' }
 );
 
+export const createTeamInvitationSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100).optional(),
+  email: z.string().trim().email('Must be a valid email address'),
+  role: z.string().trim().min(2).max(100).optional().default('Senior Full-Stack Engineer'),
+  username: z.string().trim().min(2).max(50).optional(),
+  githubUsername: z.string().trim().max(100).optional(),
+  projectId: z.string().trim().optional(),
+  password: z.string().min(6).optional(),
+  initialTaskTitle: z.string().trim().optional(),
+  storyPoints: z.coerce.number().optional(),
+});
+
+export const teamInvitationQuerySchema = z.object({
+  status: z.enum(['pending', 'accepted', 'expired', 'revoked', 'all']).optional(),
+  projectId: z.string().trim().optional(),
+});
+
 export const updatePRSchema = z.object({
   isReviewed: z.boolean().optional(),
   status: z.enum(['open', 'merged', 'closed']).optional(),
@@ -164,6 +181,15 @@ export const registerSchema = createUserSchema.extend({
 export const loginSchema = z.object({
   login: z.string().trim().min(2, 'Email or username is required'),
   password: z.string().min(1, 'Password is required'),
+});
+
+export const verifyEmailOtpSchema = z.object({
+  email: z.string().trim().email('Must be a valid email address'),
+  otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be an exact 6-digit numeric code'),
+});
+
+export const resendEmailOtpSchema = z.object({
+  email: z.string().trim().email('Must be a valid email address'),
 });
 
 export const userQuerySchema = z.object({

@@ -44,7 +44,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   setActiveTab
 }) => {
   const { theme, toggleTheme } = useTheme();
-  const { tasks, projects, setViewMode, resetFilters, toggleLoadingState, triggerErrorState } = useDashboard();
+  const { tasks, projects, setViewMode, resetFilters, toggleLoadingState, triggerErrorState, openProjectDetails } = useDashboard();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -178,6 +178,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
   ];
 
+  // Dynamic project items
+  const projectCommands = projects.map((p) => ({
+    id: `project_${p.id}`,
+    title: `[${p.key}] ${p.name}`,
+    subtitle: `${p.progress}% completed • Lead: ${p.lead?.name || 'Lead'}`,
+    category: 'Projects',
+    icon: FolderKanban,
+    run: () => {
+      openProjectDetails(p);
+    }
+  }));
+
   // Dynamic task items
   const taskCommands = tasks.map((t) => ({
     id: `task_${t.id}`,
@@ -191,7 +203,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
   }));
 
-  const allItems = [...actions, ...taskCommands];
+  const allItems = [...actions, ...projectCommands, ...taskCommands];
 
   const filteredItems = allItems.filter((item) => {
     if (!query.trim()) return true;

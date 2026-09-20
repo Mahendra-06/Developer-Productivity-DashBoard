@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { AuthController } from '../controllers/authController.js';
 import { requireAuth, requireAdminOrLead } from '../middleware/authMiddleware.js';
 import { validate } from '../middleware/validate.js';
-import { registerSchema, loginSchema } from '../validators/schemas.js';
+import { registerSchema, loginSchema, verifyEmailOtpSchema, resendEmailOtpSchema } from '../validators/schemas.js';
 import { ResponseHelper } from '../utils/ApiResponse.js';
 
 const router = Router();
@@ -17,6 +17,18 @@ router.post(
   '/login',
   validate({ body: loginSchema }),
   AuthController.login
+);
+
+router.post(
+  '/verify-email-otp',
+  validate({ body: verifyEmailOtpSchema }),
+  AuthController.verifyEmailOtp
+);
+
+router.post(
+  '/resend-email-otp',
+  validate({ body: resendEmailOtpSchema }),
+  AuthController.resendEmailOtp
 );
 
 router.get(

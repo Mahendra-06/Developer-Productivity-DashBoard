@@ -26,13 +26,13 @@ export const ProjectList: React.FC = () => {
   const atRiskCount = projects.filter((p) => p.status === 'at_risk').length;
   const totalTasks = projects.reduce((sum, p) => {
     const projectTasks = tasks.filter(t => t.projectId === p.id || t.projectName?.toLowerCase() === p.name?.toLowerCase());
-    return sum + (projectTasks.length > 0 ? projectTasks.length : (p.totalTasks > 0 ? p.totalTasks : 5));
+    return sum + (projectTasks.length > 0 ? projectTasks.length : (p.totalTasks || 0));
   }, 0);
   const completedTasks = projects.reduce((sum, p) => {
     const projectTasks = tasks.filter(t => t.projectId === p.id || t.projectName?.toLowerCase() === p.name?.toLowerCase());
-    return sum + (projectTasks.length > 0 ? projectTasks.filter(t => t.status === 'done').length : (p.completedTasks > 0 ? p.completedTasks : 3));
+    return sum + (projectTasks.length > 0 ? projectTasks.filter(t => t.status === 'done').length : (p.completedTasks || 0));
   }, 0);
-  const overallAvg = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 60;
+  const overallAvg = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">

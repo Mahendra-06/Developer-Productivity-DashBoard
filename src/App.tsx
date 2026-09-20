@@ -35,12 +35,14 @@ import { ActiveHuddleModal } from './components/pairing/ActiveHuddleModal';
 import { EngineeringInsightsView } from './components/analytics/EngineeringInsightsView';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthPage } from './components/auth/AuthPage';
+import { EmailOtpVerificationView } from './components/auth/EmailOtpVerificationView';
 import { MetricSkeleton, TaskCardSkeleton } from './components/ui/Skeleton';
 import { ErrorFallback } from './components/ui/ErrorFallback';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Button } from './components/ui/Button';
 import { PRDiffInspectorModal } from './components/reviews/PRDiffInspectorModal';
 import { DeploymentDetailsModal } from './components/deployments/DeploymentDetailsModal';
+import { ProjectDetailsModal } from './components/projects/ProjectDetailsModal';
 import { 
   Plus, 
   Download,
@@ -82,9 +84,16 @@ export const App: React.FC = () => {
     updateFilter,
     inspectedPR,
     inspectedDeployment,
+    inspectedProject,
+    inspectedProjectId,
     closeInspectors,
+    closeProjectDetails,
     activeHuddleRoom,
-    setActiveHuddleRoom
+    setActiveHuddleRoom,
+    pendingVerificationEmail,
+    verifyEmailOtp,
+    resendEmailOtp,
+    logoutUser
   } = useDashboard();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -132,7 +141,24 @@ export const App: React.FC = () => {
     );
   }
 
-  // 2. Strict Authentication Gate: if not authenticated, gate all dashboard content
+  // 2. Email OTP Verification Gate: Mandatory verification before dashboard access
+  const isPendingVerification = Boolean(
+    pendingVerificationEmail || (user && user.isEmailVerified === false)
+  );
+
+  if (isPendingVerification) {
+    const targetEmail = pendingVerificationEmail || user.email || '';
+    return (
+      <EmailOtpVerificationView
+        email={targetEmail}
+        onVerify={verifyEmailOtp}
+        onResend={resendEmailOtp}
+        onLogout={logoutUser}
+      />
+    );
+  }
+
+  // 3. Strict Authentication Gate: if not authenticated, gate all dashboard content
   if (!isAuthenticated) {
     return <AuthPage />;
   }
@@ -534,6 +560,17 @@ export const App: React.FC = () => {
         deployment={inspectedDeployment}
         onUpdated={() => {}}
       />
+      <ErrorBoundary
+        fallbackTitle="Failed to load Project Details"
+        onReset={closeProjectDetails}
+      >
+        <ProjectDetailsModal
+          isOpen={Boolean(inspectedProject || inspectedProjectId)}
+          onClose={closeProjectDetails}
+          project={inspectedProject}
+          projectId={inspectedProjectId}
+        />
+      </ErrorBoundary>
 
       {/* DMetrics Developer AI Copilot */}
       <DeveloperCopilotDrawer

@@ -16,6 +16,11 @@ const envSchema = z.object({
   GROQ_API_KEY: z.string().optional().default(''),
   GEMINI_API_KEY: z.string().optional().default(''),
   MONGODB_URI: z.string().optional().default(''),
+  SMTP_HOST: z.string().optional().default(''),
+  SMTP_PORT: z.coerce.number().optional().default(587),
+  SMTP_USER: z.string().optional().default(''),
+  SMTP_PASS: z.string().optional().default(''),
+  EMAIL_FROM: z.string().default('no-reply@dmetrics.dev'),
 });
 
 const parseEnv = () => {

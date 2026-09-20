@@ -1,20 +1,18 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { User, Project, Task, TaskStatus, TaskPriority, ProjectStatus } from '../types/index.js';
+import { User, Project, Task, TaskStatus, TaskPriority, ProjectStatus, TeamInvitation, InvitationStatus } from '../types/index.js';
 import {
   initialUsers,
   initialProjects,
   initialTasks,
   initialPullRequests,
   initialDeployments,
-  initialAuditEvents,
-  testPullRequests,
-  testDeployments,
-  testAuditEvents
+  initialAuditEvents
 } from './seedData.js';
 import { isMongoConnected } from '../config/mongo.js';
 import { MongoDatabase } from './mongoDb.js';
+import { ApiError } from '../utils/ApiError.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +25,7 @@ interface DatabaseStore {
   pullRequests?: any[];
   deployments?: any[];
   auditEvents?: any[];
+  teamInvitations?: TeamInvitation[];
 }
 export interface IDatabase {
   resetData(
@@ -52,12 +51,29 @@ export interface IDatabase {
     githubUsername?: string;
     projectId?: string;
     password?: string;
-  }): Promise<{ user: User; isExisting: boolean }>;
+  }): Promise<{ user: User; isExisting: boolean; invitation?: TeamInvitation }>;
   removeTeamMember(removerId: string, memberId: string): Promise<boolean>;
+  createTeamInvitation(invitationData: {
+    inviterId: string;
+    inviteeEmail: string;
+    inviteeName?: string;
+    inviteeUsername?: string;
+    role?: string;
+    githubUsername?: string;
+    projectId?: string;
+    status?: InvitationStatus;
+    tokenHash?: string;
+    expiresAt?: string;
+  }): Promise<TeamInvitation>;
+  getTeamInvitations(filters?: { userId?: string; email?: string; status?: string; projectId?: string }): Promise<TeamInvitation[]>;
+  getTeamInvitationById(id: string): Promise<TeamInvitation | null | undefined>;
+  acceptTeamInvitation(invitationId: string, acceptingUserId: string): Promise<TeamInvitation | null>;
+  revokeTeamInvitation(inviterId: string, invitationId: string): Promise<boolean>;
 
   getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; scope?: string }): Promise<Project[]>;
   getProjectById(idOrKey: string): Promise<Project | null | undefined>;
   getProjectByKey(key: string): Promise<Project | null | undefined>;
+  getProjectDetails(idOrKey: string): Promise<any | null>;
   createProject(projectData: {
     id?: string;
     createdAt?: string;
@@ -191,6 +207,7 @@ export class LocalPersistentDatabase implements IDatabase {
   private pullRequests: any[] = [];
   private deployments: any[] = [];
   private auditEvents: any[] = [];
+  private teamInvitations: TeamInvitation[] = [];
 
   constructor() {
     this.init();
@@ -205,20 +222,14 @@ export class LocalPersistentDatabase implements IDatabase {
       try {
         const raw = fs.readFileSync(STORE_PATH, 'utf-8');
         const data: DatabaseStore = JSON.parse(raw);
-        this.users = data.users || initialUsers;
-        this.projects = data.projects || initialProjects;
-        this.tasks = data.tasks || initialTasks;
-        this.pullRequests = Array.isArray(data.pullRequests) && data.pullRequests.length > 0
-          ? data.pullRequests
-          : JSON.parse(JSON.stringify(testPullRequests));
-        this.deployments = Array.isArray(data.deployments) && data.deployments.length > 0
-          ? data.deployments
-          : JSON.parse(JSON.stringify(testDeployments));
-        this.auditEvents = Array.isArray(data.auditEvents) && data.auditEvents.length > 0
-          ? data.auditEvents
-          : JSON.parse(JSON.stringify(testAuditEvents));
+        this.users = Array.isArray(data.users) ? data.users : initialUsers;
+        this.projects = Array.isArray(data.projects) ? data.projects : initialProjects;
+        this.tasks = Array.isArray(data.tasks) ? data.tasks : initialTasks;
+        this.pullRequests = Array.isArray(data.pullRequests) ? data.pullRequests : [];
+        this.deployments = Array.isArray(data.deployments) ? data.deployments : [];
+        this.auditEvents = Array.isArray(data.auditEvents) ? data.auditEvents : [];
+        this.teamInvitations = Array.isArray(data.teamInvitations) ? data.teamInvitations : [];
 
-        this.ensureProjectPRsSync();
         this.persist();
         return;
       } catch (err) {
@@ -230,88 +241,7 @@ export class LocalPersistentDatabase implements IDatabase {
   }
 
   public ensureProjectPRsSync() {
-    this.projects.forEach(p => {
-      // Personal task workspaces are internal containers, not repositories.
-      if (p.key.toUpperCase().startsWith('PERSONAL-')) return;
-
-      const repoSlug = p.repoUrl ? p.repoUrl.replace(/^https?:\/\/github\.com\//i, '') : `dmetrics/${p.key.toLowerCase()}`;
-      const expectedId = `pr_proj_${p.id}`;
-      const hasPR = this.pullRequests.some(pr =>
-        pr.id === expectedId ||
-        (pr.projectId && pr.projectId === p.id) ||
-        (pr.repo && pr.repo.toLowerCase() === repoSlug.toLowerCase()) ||
-        (pr.title && pr.title.toUpperCase().includes(`[${p.key.toUpperCase()}]`))
-      );
-
-      if (!hasPR) {
-        const lead = this.users.find(u => u.id === p.leadId) || this.users[0] || {
-          id: 'usr_1',
-          name: 'Developer',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          role: 'Engineer',
-          username: 'developer'
-        };
-        const isTeam = (p as any).projectType === 'team' || ((p.teamIds && p.teamIds.length > 1) ? true : false);
-        const teamPool = (p.teamIds && p.teamIds.length > 0)
-          ? this.users.filter(u => p.teamIds!.includes(u.id))
-          : this.users;
-        const eligible = teamPool.filter(u => u.id !== lead.id && u.name !== lead.name);
-
-        const assignedReviewers = isTeam
-          ? eligible.slice(0, 3).map(u => ({
-              id: u.id,
-              name: u.name,
-              avatar: u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-              role: u.role || 'Engineer',
-              username: u.username,
-              status: 'pending' as const
-            }))
-          : [];
-
-        const prNumber = (Math.abs(p.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
-        this.pullRequests.unshift({
-          id: expectedId,
-          number: prNumber,
-          prNumber: `PR #${prNumber}`,
-          title: `[${p.key}] Feature Architecture & CI/CD Pipeline Setup`,
-          repo: repoSlug,
-          branch: `feat/${p.key.toLowerCase()}-pipeline-arch`,
-          targetBranch: 'main',
-          author: {
-            id: lead.id,
-            name: lead.name,
-            avatar: lead.avatar,
-            role: lead.role,
-            username: lead.username
-          },
-          reviewers: assignedReviewers,
-          projectId: p.id,
-          projectType: isTeam ? 'team' : 'individual',
-          status: 'open',
-          checksStatus: 'passed',
-          ciStatus: 'passing',
-          additions: 380,
-          deletions: 18,
-          commentsCount: 1,
-          filesChangedCount: 4,
-          waitingHours: 1.2,
-          slaStatus: 'healthy',
-          isReviewed: false,
-          isMerged: false,
-          queueType: 'review_requested',
-          diffSnippet: `+ // CI/CD Setup for [${p.key}]: ${p.name}\n+ export const projectKey = '${p.key}';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;`,
-          aiInsights: {
-            summary: `Continuous integration baseline and CI/CD workflow definition for ${p.name}. Automated checks passing.`,
-            performance: ['Zero latency regression', 'Optimal bundle budgets'],
-            security: ['No secret leaks detected', 'Strict type assertions'],
-            testing: ['Unit tests passed (100%)', 'Continuous integration green']
-          },
-          createdAt: p.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          turnaroundHours: 1.5
-        });
-      }
-    });
+    // Live data only: No synthetic or mock pull request records are generated.
   }
 
   private persist() {
@@ -323,6 +253,7 @@ export class LocalPersistentDatabase implements IDatabase {
         pullRequests: this.pullRequests,
         deployments: this.deployments,
         auditEvents: this.auditEvents,
+        teamInvitations: this.teamInvitations,
       };
       fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
@@ -334,9 +265,9 @@ export class LocalPersistentDatabase implements IDatabase {
     users = initialUsers,
     projects = initialProjects,
     tasks = initialTasks,
-    pullRequests = testPullRequests,
-    deployments = testDeployments,
-    auditEvents = testAuditEvents
+    pullRequests = initialPullRequests,
+    deployments = initialDeployments,
+    auditEvents = initialAuditEvents
   ) {
     this.users = JSON.parse(JSON.stringify(users));
     this.projects = JSON.parse(JSON.stringify(projects));
@@ -344,7 +275,7 @@ export class LocalPersistentDatabase implements IDatabase {
     this.pullRequests = JSON.parse(JSON.stringify(pullRequests));
     this.deployments = JSON.parse(JSON.stringify(deployments));
     this.auditEvents = JSON.parse(JSON.stringify(auditEvents));
-    this.ensureProjectPRsSync();
+    this.teamInvitations = [];
     this.persist();
   }
 
@@ -448,6 +379,11 @@ export class LocalPersistentDatabase implements IDatabase {
     const newUser: User = {
       ...userData,
       id,
+      isEmailVerified: userData.isEmailVerified !== undefined ? userData.isEmailVerified : false,
+      emailOtpHash: userData.emailOtpHash || null,
+      emailOtpExpiresAt: userData.emailOtpExpiresAt || null,
+      emailOtpAttempts: userData.emailOtpAttempts || 0,
+      emailOtpLastSentAt: userData.emailOtpLastSentAt || null,
       productivityScore: userData.productivityScore || 0,
       activeStreak: userData.activeStreak || 0,
       weeklyGoalHours: userData.weeklyGoalHours || 40,
@@ -497,14 +433,14 @@ export class LocalPersistentDatabase implements IDatabase {
   }
 
   public async inviteTeamMember(inviterId: string, memberData: {
-    name: string;
+    name?: string;
     email: string;
-    role: string;
+    role?: string;
     username?: string;
     githubUsername?: string;
     projectId?: string;
     password?: string;
-  }): Promise<{ user: User; isExisting: boolean }> {
+  }): Promise<{ user: User; isExisting: boolean; invitation?: TeamInvitation }> {
     const cleanEmail = memberData.email.trim().toLowerCase();
     const cleanGithub = memberData.githubUsername
       ? memberData.githubUsername.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/$/, '')
@@ -513,47 +449,33 @@ export class LocalPersistentDatabase implements IDatabase {
       ? memberData.username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_')
       : cleanEmail.split('@')[0].replace(/[^a-z0-9_-]/g, '_');
 
-    let existingIndex = this.users.findIndex(u => u.email.toLowerCase() === cleanEmail || u.username.toLowerCase() === cleanUsername);
-    let targetUser: User;
-    let isExisting = false;
-
-    if (existingIndex !== -1) {
-      isExisting = true;
-      targetUser = this.users[existingIndex];
-      if (!Array.isArray(targetUser.teamMemberIds)) targetUser.teamMemberIds = [];
-      if (!targetUser.teamMemberIds.includes(inviterId)) targetUser.teamMemberIds.push(inviterId);
-      if (!targetUser.invitedBy) targetUser.invitedBy = inviterId;
-      this.users[existingIndex] = targetUser;
-    } else {
-      isExisting = false;
-      const id = `usr_${Date.now()}`;
-      targetUser = {
-        id,
-        name: memberData.name.trim(),
-        email: cleanEmail,
-        role: memberData.role,
-        username: cleanUsername,
-        avatar: cleanGithub ? `https://github.com/${cleanGithub}.png` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
-        githubUsername: cleanGithub,
-        githubUrl: cleanGithub ? `https://github.com/${cleanGithub}` : '',
-        invitedBy: inviterId,
-        teamMemberIds: [inviterId],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      this.users.push(targetUser);
+    const targetUser = this.users.find(u => u.email.toLowerCase() === cleanEmail || (u.username && u.username.toLowerCase() === cleanUsername));
+    if (!targetUser) {
+      throw ApiError.notFound('This user must create an account before they can be invited.');
     }
 
-    const inviterIndex = this.users.findIndex(u => u.id === inviterId);
-    if (inviterIndex !== -1) {
-      const inviter = this.users[inviterIndex];
+    if (targetUser.id === inviterId) {
+      throw ApiError.badRequest('You cannot invite yourself to your own team.');
+    }
+
+    const inviter = this.users.find(u => u.id === inviterId);
+    if (inviter && Array.isArray(inviter.teamMemberIds) && inviter.teamMemberIds.includes(targetUser.id)) {
+      throw ApiError.badRequest('This user is already a member of your team.');
+    }
+
+    // Link bidirectional team membership
+    if (!Array.isArray(targetUser.teamMemberIds)) targetUser.teamMemberIds = [];
+    if (!targetUser.teamMemberIds.includes(inviterId)) targetUser.teamMemberIds.push(inviterId);
+    if (!targetUser.invitedBy) targetUser.invitedBy = inviterId;
+
+    if (inviter) {
       if (!Array.isArray(inviter.teamMemberIds)) inviter.teamMemberIds = [];
       if (!inviter.teamMemberIds.includes(targetUser.id)) {
         inviter.teamMemberIds.push(targetUser.id);
-        this.users[inviterIndex] = inviter;
       }
     }
 
+    // Attach to project if specified
     if (memberData.projectId) {
       const pIdx = this.projects.findIndex(p => p.id === memberData.projectId);
       if (pIdx !== -1) {
@@ -566,8 +488,19 @@ export class LocalPersistentDatabase implements IDatabase {
       }
     }
 
+    const invitation = await this.createTeamInvitation({
+      inviterId,
+      inviteeEmail: cleanEmail,
+      inviteeName: targetUser.name || (memberData.name ? memberData.name.trim() : targetUser.name),
+      inviteeUsername: targetUser.username || cleanUsername,
+      role: memberData.role || targetUser.role,
+      githubUsername: targetUser.githubUsername || cleanGithub,
+      projectId: memberData.projectId,
+      status: 'accepted',
+    });
+
     this.persist();
-    return { user: targetUser, isExisting };
+    return { user: targetUser, isExisting: true, invitation };
   }
 
   public async removeTeamMember(removerId: string, memberId: string): Promise<boolean> {
@@ -603,6 +536,173 @@ export class LocalPersistentDatabase implements IDatabase {
       }
     });
 
+    // Mark active invitations between them as revoked
+    this.teamInvitations.forEach(inv => {
+      if (
+        (inv.inviterId === removerId && (inv.inviteeEmail === member?.email || inv.inviteeUsername === member?.username)) ||
+        (inv.inviterId === memberId && (inv.inviteeEmail === remover?.email || inv.inviteeUsername === remover?.username))
+      ) {
+        inv.status = 'revoked';
+        inv.updatedAt = new Date().toISOString();
+      }
+    });
+
+    this.persist();
+    return true;
+  }
+
+  public async createTeamInvitation(invitationData: {
+    inviterId: string;
+    inviteeEmail: string;
+    inviteeName?: string;
+    inviteeUsername?: string;
+    role?: string;
+    githubUsername?: string;
+    projectId?: string;
+    status?: InvitationStatus;
+    tokenHash?: string;
+    expiresAt?: string;
+  }): Promise<TeamInvitation> {
+    const id = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const now = new Date();
+    const expires = invitationData.expiresAt || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const status = invitationData.status || 'pending';
+
+    const invitation: TeamInvitation = {
+      id,
+      inviterId: invitationData.inviterId,
+      inviteeEmail: invitationData.inviteeEmail.trim().toLowerCase(),
+      inviteeName: invitationData.inviteeName?.trim(),
+      inviteeUsername: invitationData.inviteeUsername?.trim().toLowerCase(),
+      role: invitationData.role || 'Frontend Engineer',
+      githubUsername: invitationData.githubUsername?.trim(),
+      projectId: invitationData.projectId,
+      status,
+      tokenHash: invitationData.tokenHash,
+      expiresAt: expires,
+      acceptedAt: status === 'accepted' ? now.toISOString() : undefined,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
+    this.teamInvitations.push(invitation);
+    this.persist();
+    return invitation;
+  }
+
+  public async getTeamInvitations(filters?: { userId?: string; email?: string; status?: string; projectId?: string }): Promise<TeamInvitation[]> {
+    let result = [...this.teamInvitations];
+
+    if (filters?.userId) {
+      const user = this.users.find(u => u.id === filters.userId);
+      const userEmail = user ? user.email.toLowerCase() : '';
+      result = result.filter(inv => inv.inviterId === filters.userId || (userEmail && inv.inviteeEmail.toLowerCase() === userEmail));
+    }
+
+    if (filters?.email) {
+      const emailFilter = filters.email.toLowerCase();
+      result = result.filter(inv => inv.inviteeEmail.toLowerCase() === emailFilter);
+    }
+
+    if (filters?.status) {
+      result = result.filter(inv => inv.status === filters.status);
+    }
+
+    if (filters?.projectId) {
+      result = result.filter(inv => inv.projectId === filters.projectId);
+    }
+
+    // Auto-expire pending invitations that passed expiresAt
+    const now = new Date();
+    let hasExpired = false;
+    result.forEach(inv => {
+      if (inv.status === 'pending' && new Date(inv.expiresAt) < now) {
+        inv.status = 'expired';
+        inv.updatedAt = now.toISOString();
+        hasExpired = true;
+      }
+    });
+
+    if (hasExpired) {
+      this.persist();
+    }
+
+    return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  public async getTeamInvitationById(id: string): Promise<TeamInvitation | undefined> {
+    if (!id) return undefined;
+    return this.teamInvitations.find(inv => inv.id === id);
+  }
+
+  public async acceptTeamInvitation(invitationId: string, acceptingUserId: string): Promise<TeamInvitation | null> {
+    const invitationIndex = this.teamInvitations.findIndex(inv => inv.id === invitationId);
+    if (invitationIndex === -1) return null;
+
+    const invitation = this.teamInvitations[invitationIndex];
+    if (invitation.status !== 'pending') {
+      return null;
+    }
+
+    const now = new Date();
+    if (new Date(invitation.expiresAt) < now) {
+      invitation.status = 'expired';
+      invitation.updatedAt = now.toISOString();
+      this.persist();
+      return null;
+    }
+
+    const acceptingUser = this.users.find(u => u.id === acceptingUserId);
+    const inviterUser = this.users.find(u => u.id === invitation.inviterId);
+
+    if (acceptingUser && inviterUser) {
+      // Link bidirectional membership
+      if (!Array.isArray(acceptingUser.teamMemberIds)) acceptingUser.teamMemberIds = [];
+      if (!acceptingUser.teamMemberIds.includes(inviterUser.id)) {
+        acceptingUser.teamMemberIds.push(inviterUser.id);
+      }
+      if (!acceptingUser.invitedBy) {
+        acceptingUser.invitedBy = inviterUser.id;
+      }
+
+      if (!Array.isArray(inviterUser.teamMemberIds)) inviterUser.teamMemberIds = [];
+      if (!inviterUser.teamMemberIds.includes(acceptingUser.id)) {
+        inviterUser.teamMemberIds.push(acceptingUser.id);
+      }
+
+      // Attach to project if set
+      if (invitation.projectId) {
+        const project = this.projects.find(p => p.id === invitation.projectId);
+        if (project) {
+          if (!Array.isArray(project.teamIds)) project.teamIds = [];
+          if (!project.teamIds.includes(acceptingUser.id)) {
+            project.teamIds.push(acceptingUser.id);
+          }
+        }
+      }
+    }
+
+    invitation.status = 'accepted';
+    invitation.acceptedAt = now.toISOString();
+    invitation.updatedAt = now.toISOString();
+
+    this.teamInvitations[invitationIndex] = invitation;
+    this.persist();
+    return invitation;
+  }
+
+  public async revokeTeamInvitation(inviterId: string, invitationId: string): Promise<boolean> {
+    const invitationIndex = this.teamInvitations.findIndex(inv => inv.id === invitationId);
+    if (invitationIndex === -1) return false;
+
+    const invitation = this.teamInvitations[invitationIndex];
+    if (invitation.inviterId !== inviterId && inviterId !== 'usr_1') {
+      return false;
+    }
+
+    invitation.status = 'revoked';
+    invitation.updatedAt = new Date().toISOString();
+    this.teamInvitations[invitationIndex] = invitation;
     this.persist();
     return true;
   }
@@ -674,14 +774,113 @@ export class LocalPersistentDatabase implements IDatabase {
 
   public async getProjectById(idOrKey: string): Promise<Project | undefined> {
     const needle = idOrKey.toUpperCase();
-    const projects = await this.getProjects();
-    return projects.find(p => p.id === idOrKey || p.key.toUpperCase() === needle);
+    const raw = this.projects.find(p => p.id === idOrKey || p.key.toUpperCase() === needle);
+    if (!raw) return undefined;
+
+    const projectTasks = this.tasks.filter(t => t.projectId === raw.id);
+    const totalTasks = projectTasks.length;
+    const completedTasks = projectTasks.filter(t => t.status === 'done').length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    
+    const lead = this.users.find(u => u.id === raw.leadId) || this.users[0];
+    const team = (raw.teamIds || [raw.leadId]).map(tid => this.users.find(u => u.id === tid)).filter(Boolean) as User[];
+
+    return {
+      ...raw,
+      progress,
+      totalTasks,
+      completedTasks,
+      lead,
+      team,
+    };
   }
 
   public async getProjectByKey(key: string): Promise<Project | undefined> {
-    const needle = key.toUpperCase();
-    const projects = await this.getProjects();
-    return projects.find(p => p.key.toUpperCase() === needle);
+    return this.getProjectById(key);
+  }
+
+  public async getProjectDetails(idOrKey: string) {
+    const project = await this.getProjectById(idOrKey);
+    if (!project) return null;
+
+    // 1. Tasks associated with this project
+    const tasks = this.tasks.filter(t => t.projectId === project.id).map(t => {
+      const assignee = this.users.find(u => u.id === t.assigneeId) || (t.assignee || this.users[0]);
+      return {
+        ...t,
+        projectName: project.name,
+        assignee,
+      };
+    });
+
+    // 2. Pull Requests associated with this project
+    const repoSlug = project.repoUrl ? project.repoUrl.replace(/^https?:\/\/github\.com\//i, '').toLowerCase() : `dmetrics/${project.key.toLowerCase()}`;
+    const pullRequests = this.pullRequests.filter(pr =>
+      pr.projectId === project.id ||
+      (pr.repo && pr.repo.toLowerCase() === repoSlug) ||
+      (pr.title && pr.title.toUpperCase().includes(`[${project.key.toUpperCase()}]`))
+    );
+
+    // 3. Deployments associated with this project
+    const serviceSlug = project.name.toLowerCase().replace(/[\s_]+/g, '-');
+    const deployments = this.deployments.filter(d =>
+      d.projectId === project.id ||
+      (d.projectName && d.projectName.toLowerCase() === project.name.toLowerCase()) ||
+      (d.serviceName && (d.serviceName.toLowerCase() === serviceSlug || d.serviceName.toLowerCase().includes(project.key.toLowerCase()))) ||
+      (d.repositoryUrl && project.repoUrl && d.repositoryUrl.toLowerCase() === project.repoUrl.toLowerCase())
+    );
+
+    // 4. Audit activity associated with the project
+    const projectTaskKeys = new Set(tasks.map(t => t.key.toUpperCase()));
+    const recentActivity = this.auditEvents.filter(evt => {
+      if (evt.projectId === project.id || evt.entityId === project.id) return true;
+      const targetUpper = (evt.target || '').toUpperCase();
+      const actionUpper = (evt.action || '').toUpperCase();
+      const metadataUpper = (evt.metadata || '').toUpperCase();
+      if (targetUpper.includes(project.key.toUpperCase()) || targetUpper.includes(project.name.toUpperCase())) return true;
+      if (actionUpper.includes(project.key.toUpperCase()) || actionUpper.includes(project.name.toUpperCase())) return true;
+      if (metadataUpper.includes(project.key.toUpperCase())) return true;
+      for (const tKey of projectTaskKeys) {
+        if (targetUpper.includes(tKey)) return true;
+      }
+      return false;
+    }).slice(0, 15);
+
+    // 5. Compute Metrics
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === 'done').length;
+    const tasksByStatus = {
+      backlog: tasks.filter(t => t.status === 'backlog').length,
+      in_progress: tasks.filter(t => t.status === 'in_progress').length,
+      in_review: tasks.filter(t => t.status === 'in_review').length,
+      done: completedTasks,
+    };
+    const openPullRequests = pullRequests.filter(p => !p.isMerged && p.status !== 'merged' && p.status !== 'closed').length;
+    const deploymentsCount = deployments.length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : (project.progress || 0);
+
+    const metrics = {
+      totalTasks,
+      completedTasks,
+      tasksByStatus,
+      openPullRequests,
+      deployments: deploymentsCount,
+      progress,
+    };
+
+    return {
+      project: {
+        ...project,
+        progress,
+        totalTasks,
+        completedTasks,
+      },
+      metrics,
+      tasks,
+      pullRequests,
+      deployments,
+      recentActivity,
+    };
   }
 
   public async createProject(projectData: {
@@ -727,43 +926,6 @@ export class LocalPersistentDatabase implements IDatabase {
     };
 
     this.projects.push(newProject);
-
-    // Auto-create initial Architecture & CI/CD Setup PR for this project
-    const repoSlug = newProject.repoUrl ? newProject.repoUrl.replace(/^https?:\/\/github\.com\//i, '') : `dmetrics/${newProject.key.toLowerCase()}`;
-    const prNumber = (Math.abs(newProject.key.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)) % 800) + 100;
-    const isTeam = isTeamProject;
-    if (!newProject.key.toUpperCase().startsWith('PERSONAL-')) await this.createPullRequest({
-      id: `pr_proj_${newProject.id}`,
-      number: prNumber,
-      prNumber: `PR #${prNumber}`,
-      title: `[${newProject.key}] Feature Architecture & CI/CD Pipeline Setup`,
-      repo: repoSlug,
-      branch: `feat/${newProject.key.toLowerCase()}-pipeline-arch`,
-      targetBranch: 'main',
-      author: {
-        id: lead.id,
-        name: lead.name,
-        avatar: lead.avatar,
-        role: lead.role,
-        username: lead.username
-      },
-      projectId: newProject.id,
-      projectType: isTeam ? 'team' : 'individual',
-      status: 'open',
-      checksStatus: 'passed',
-      ciStatus: 'passing',
-      additions: 380,
-      deletions: 18,
-      waitingHours: 0.5,
-      slaStatus: 'healthy',
-      diffSnippet: `+ // CI/CD Setup for [${newProject.key}]: ${newProject.name}\n+ export const projectKey = '${newProject.key}';\n+ export const targetEnv = 'production';\n+ export const sloTarget = 99.9;`,
-      aiInsights: {
-        summary: `Continuous integration baseline and CI/CD workflow definition for ${newProject.name}. Automated checks passing.`,
-        performance: ['Zero latency regression', 'Optimal bundle budgets'],
-        security: ['No secret leaks detected', 'Strict type assertions'],
-        testing: ['Unit tests passed (100%)', 'Continuous integration green']
-      }
-    });
 
     this.persist();
     return newProject;
@@ -1818,7 +1980,7 @@ export class LocalPersistentDatabase implements IDatabase {
       category: 'deployments',
       actor: {
         id: deploymentData.author?.id || 'usr_1',
-        name: deploymentData.author?.name || 'Alex Chen',
+        name: deploymentData.author?.name || 'Developer',
         avatar: deploymentData.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         role: 'Platform Engineer',
       },
@@ -2162,7 +2324,7 @@ export class LocalPersistentDatabase implements IDatabase {
       if (withTurnaround.length > 0) {
         avgTurnaround = Number((withTurnaround.reduce((sum, p) => sum + p.turnaroundHours, 0) / withTurnaround.length).toFixed(1));
       } else {
-        avgTurnaround = 1.2;
+        avgTurnaround = 0;
       }
     }
 
@@ -2188,7 +2350,7 @@ export class LocalPersistentDatabase implements IDatabase {
         productivityScore,
         avgReviewTurnaroundHours: avgTurnaround,
         deploymentSuccessRate,
-        meanTimeToRecoveryMinutes: avgDuration || 1,
+        meanTimeToRecoveryMinutes: avgDuration || 0,
         dailyDeploymentVelocity: this.deployments.length,
         totalStoryPoints: totalPoints,
         completedStoryPoints: donePoints,
