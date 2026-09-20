@@ -353,7 +353,7 @@ export class MongoDatabase {
       });
     } catch (e) { /* ignore */ }
 
-    return { user: this.mapUser(targetUser.toObject ? targetUser.toObject() : targetUser), isExisting, invitation };
+    return { user: this.mapUser(targetUser.toObject ? targetUser.toObject() : targetUser), isExisting: true, invitation };
   }
 
   public async removeTeamMember(removerId: string, memberId: string): Promise<boolean> {
@@ -912,9 +912,9 @@ export class MongoDatabase {
 
     // Relational joins: populate assignee and projectName
     let enriched: Task[] = rawTasks.map(t => {
-      const assignee = users.find(u => 
-        u.id === t.assigneeId || 
-        (u.username && u.username.toLowerCase() === (t.assigneeId || '').toLowerCase()) || 
+      const assignee = users.find(u =>
+        u.id === t.assigneeId ||
+        (u.username && u.username.toLowerCase() === (t.assigneeId || '').toLowerCase()) ||
         (u.email && u.email.toLowerCase() === (t.assigneeId || '').toLowerCase()) ||
         (u.name && u.name.toLowerCase() === (t.assigneeId || '').toLowerCase())
       ) || (t.assignee && (t.assignee as any).id ? (t.assignee as any) : {
@@ -925,9 +925,9 @@ export class MongoDatabase {
         avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(t.assigneeId || 'teammate')}`
       } as User);
       const project = projects.find(p => p.id === t.projectId);
-      let assigner = (t as any).assignerId ? users.find(u => 
-        u.id === (t as any).assignerId || 
-        (u.username && u.username.toLowerCase() === ((t as any).assignerId || '').toLowerCase()) || 
+      let assigner = (t as any).assignerId ? users.find(u =>
+        u.id === (t as any).assignerId ||
+        (u.username && u.username.toLowerCase() === ((t as any).assignerId || '').toLowerCase()) ||
         (u.email && u.email.toLowerCase() === ((t as any).assignerId || '').toLowerCase())
       ) : (t as any).assigner;
 
@@ -1037,9 +1037,9 @@ export class MongoDatabase {
     let assignee = await this.getUserById(taskData.assigneeId);
     if (!assignee) {
       const users = await this.getUsers();
-      assignee = users.find(u => 
-        u.id === taskData.assigneeId || 
-        (u.username && u.username.toLowerCase() === (taskData.assigneeId || '').toLowerCase()) || 
+      assignee = users.find(u =>
+        u.id === taskData.assigneeId ||
+        (u.username && u.username.toLowerCase() === (taskData.assigneeId || '').toLowerCase()) ||
         (u.email && u.email.toLowerCase() === (taskData.assigneeId || '').toLowerCase()) ||
         (u.name && u.name.toLowerCase() === (taskData.assigneeId || '').toLowerCase())
       ) || null;
@@ -1575,7 +1575,7 @@ export class MongoDatabase {
       });
     }
 
-    const updates: any = { 
+    const updates: any = {
       updatedAt: new Date().toISOString(),
       reviewers: updatedReviewers
     };
@@ -1702,8 +1702,8 @@ export class MongoDatabase {
 
     const pr = await PullRequestModel.findOneAndUpdate(
       { id: actualId },
-      { 
-        $set: { 
+      {
+        $set: {
           status: 'merged',
           isMerged: true,
           queueType: 'merged',
@@ -1717,7 +1717,7 @@ export class MongoDatabase {
             role: actor?.role || 'Backend Systems Engineer'
           },
           updatedAt: new Date().toISOString()
-        } 
+        }
       },
       { new: true }
     ).lean();
@@ -1736,7 +1736,7 @@ export class MongoDatabase {
       const matchedKey = matchKeyMatch ? matchKeyMatch[1].toUpperCase() : null;
       if (matchedKey) {
         await TaskModel.updateMany(
-          { 
+          {
             $or: [{ key: matchedKey }, { title: { $regex: matchedKey, $options: 'i' } }],
             status: { $ne: 'done' }
           },
@@ -2005,8 +2005,8 @@ export class MongoDatabase {
     const failedDeployments = allDeps.filter(d => d.status === 'failed').length;
     const inProgressDeployments = allDeps.filter(d => d.status === 'in_progress' || d.status === 'building' || d.status === 'pending').length;
 
-    const successRate = totalDeployments > 0 
-      ? Number(((successfulDeployments / totalDeployments) * 100).toFixed(1)) 
+    const successRate = totalDeployments > 0
+      ? Number(((successfulDeployments / totalDeployments) * 100).toFixed(1))
       : 0;
 
     const avgDurationSeconds = totalDeployments > 0
@@ -2245,7 +2245,7 @@ export class MongoDatabase {
       try {
         const d = isoStr.split('T')[0];
         timestampsByDate[d] = (timestampsByDate[d] || 0) + 1;
-      } catch {}
+      } catch { }
     };
 
     allTasks.forEach(t => { registerDate(t.createdAt); registerDate(t.updatedAt); });
@@ -2291,7 +2291,7 @@ export class MongoDatabase {
             hourlyCounts[hr] = (hourlyCounts[hr] || 0) + 1;
           }
         }
-      } catch {}
+      } catch { }
     };
 
     allAuditEvents.forEach(a => countHour(a.timestamp));
@@ -2304,13 +2304,13 @@ export class MongoDatabase {
       const h = parseInt(hStr, 10);
       const hourPadded = h < 10 ? `0${h}:00` : `${h}:00`;
       const intensity = Math.round((count / maxHourCount) * 100);
-      const label = count === 0 
-        ? 'Standby' 
-        : intensity >= 80 
-        ? 'Peak Deep Flow' 
-        : intensity >= 50 
-        ? 'Active Development' 
-        : 'Review & Sync';
+      const label = count === 0
+        ? 'Standby'
+        : intensity >= 80
+          ? 'Peak Deep Flow'
+          : intensity >= 50
+            ? 'Active Development'
+            : 'Review & Sync';
       return {
         hour: hourPadded,
         label,
@@ -2335,8 +2335,8 @@ export class MongoDatabase {
     const mergedPRs = allPRs.filter(p => p.status === 'merged' || (p as any).isMerged);
     const prVelocityRate = allPRs.length > 0 ? (mergedPRs.length / allPRs.length) : 0;
     const passedDeployments = allDeployments.filter(d => (d.status as string) === 'success' || (d.status as string) === 'passed');
-    const deploymentSuccessRate = allDeployments.length > 0 
-      ? Number(((passedDeployments.length / allDeployments.length) * 100).toFixed(1)) 
+    const deploymentSuccessRate = allDeployments.length > 0
+      ? Number(((passedDeployments.length / allDeployments.length) * 100).toFixed(1))
       : 0;
 
     const avgDuration = allDeployments.length > 0
