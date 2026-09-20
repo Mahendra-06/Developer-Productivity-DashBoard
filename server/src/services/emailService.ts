@@ -1,7 +1,5 @@
-import dns from 'node:dns';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import nodemailer, { type TransportOptions } from 'nodemailer';
 import { env } from '../config/env.js';
 
 export class EmailService {
@@ -38,124 +36,113 @@ export class EmailService {
   ): Promise<void> {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Log OTP to server console as an immediate backup for environments where SMTP is blocked (e.g., Render Free Tier)
+    // Log OTP to server console as an immediate backup/fallback
     console.log(`\n======================================================`);
     console.log(`[EmailService] ✉️  Verification OTP for ${normalizedEmail}: ${otp}`);
     console.log(`======================================================\n`);
-
-    const hasSmtpConfiguration =
-      Boolean(env.SMTP_HOST) &&
-      Boolean(env.SMTP_USER) &&
-      Boolean(env.SMTP_PASSWORD);
 
     if (env.NODE_ENV !== 'production') {
       this.testOtpRegistry.set(normalizedEmail, otp);
     }
 
+    const displayName = userName?.trim() || 'there';
+    const emailSubject = 'Your DMetrics email verification code';
+    const emailText = [
+      `Hello ${displayName},`,
+      '',
+      `Your DMetrics verification code is: ${otp}`,
+      '',
+      'This code expires in 10 minutes and can only be used once.',
+      '',
+      'If you did not create a DMetrics account, you can ignore this email.',
+    ].join('\n');
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #172033; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h2 style="color: #4f46e5; margin-top: 0;">Verify your DMetrics email</h2>
+        <p>Hello ${displayName},</p>
+        <p>Use the verification code below to complete your registration:</p>
+
+        <div style="
+          display: inline-block;
+          padding: 12px 24px;
+          margin: 16px 0;
+          border-radius: 8px;
+          background: #eef2ff;
+          color: #3730a3;
+          font-size: 28px;
+          font-weight: 700;
+          letter-spacing: 6px;
+        ">
+          ${otp}
+        </div>
+
+        <p style="color: #64748b; font-size: 14px;">This code expires in 10 minutes and can only be used once.</p>
+        <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">If you did not request this, you can safely ignore this email.</p>
+      </div>
+    `;
+
     /*
-     * Use SMTP whenever SMTP credentials exist.
+     * Send via Resend HTTP REST API (Port 443 - HTTPS)
      */
-    if (hasSmtpConfiguration) {
-      let targetHost = env.SMTP_HOST;
+    if (env.RESEND_API_KEY) {
       try {
-        // Force IPv4 resolution to prevent ENETUNREACH in cloud environments (Render) without IPv6 routes
-        const addresses = await dns.promises.resolve4(env.SMTP_HOST);
-        if (addresses && addresses.length > 0) {
-          targetHost = addresses[0];
+        let fromAddress = env.RESEND_FROM || 'DMetrics <onboarding@resend.dev>';
+        // Public webmail domains (@gmail.com, etc.) cannot be used as sender in Resend without domain ownership
+        if (
+          fromAddress.includes('@gmail.com') ||
+          fromAddress.includes('@yahoo.com') ||
+          fromAddress.includes('@outlook.com') ||
+          fromAddress.includes('@hotmail.com')
+        ) {
+          console.warn(
+            `[EmailService] Sender address '${fromAddress}' is an unverified public webmail domain. Using 'DMetrics <onboarding@resend.dev>' instead.`
+          );
+          fromAddress = 'DMetrics <onboarding@resend.dev>';
         }
-      } catch (dnsErr) {
-        console.warn(
-          `[EmailService] Could not resolve IPv4 for ${env.SMTP_HOST}, using hostname directly:`,
-          dnsErr
-        );
-      }
 
-      const transporter = nodemailer.createTransport({
-        host: targetHost,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_PORT === 465,
-        auth: {
-          user: env.SMTP_USER,
-          pass: env.SMTP_PASSWORD,
-        },
-        tls: {
-          servername: env.SMTP_HOST,
-        },
-        family: 4,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-      } as TransportOptions);
-
-      const displayName = userName?.trim() || 'there';
-      const fromAddress = env.SMTP_FROM || env.SMTP_USER;
-
-      try {
-        await transporter.sendMail({
-          from: fromAddress,
-          to: normalizedEmail,
-          subject: 'Your DMetrics email verification code',
-          text: [
-            `Hello ${displayName},`,
-            '',
-            `Your DMetrics verification code is: ${otp}`,
-            '',
-            'This code expires in 10 minutes and can only be used once.',
-            '',
-            'If you did not create a DMetrics account, you can ignore this email.',
-          ].join('\n'),
-          html: `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #172033;">
-              <h2>Verify your DMetrics email</h2>
-              <p>Hello ${displayName},</p>
-              <p>Your DMetrics verification code is:</p>
-
-              <div style="
-                display: inline-block;
-                padding: 12px 20px;
-                margin: 12px 0;
-                border-radius: 8px;
-                background: #eef2ff;
-                color: #3730a3;
-                font-size: 28px;
-                font-weight: 700;
-                letter-spacing: 6px;
-              ">
-                ${otp}
-              </div>
-
-              <p>This code expires in 10 minutes and can only be used once.</p>
-              <p>If you did not create a DMetrics account, you can ignore this email.</p>
-            </div>
-          `,
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: fromAddress,
+            to: [normalizedEmail],
+            subject: emailSubject,
+            text: emailText,
+            html: emailHtml,
+          }),
         });
 
-        console.log(
-          `[EmailService] Verification email sent to ${normalizedEmail}`
-        );
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`Resend HTTP error ${res.status}: ${errBody}`);
+        }
 
+        console.log(
+          `[EmailService] Verification email sent to ${normalizedEmail} via Resend HTTP API`
+        );
         return;
-      } catch (sendError) {
+      } catch (resendError) {
         console.error(
-          `[EmailService] SMTP delivery failed for ${normalizedEmail}:`,
-          sendError
+          `[EmailService] Resend API delivery failed for ${normalizedEmail}:`,
+          resendError
         );
-        console.warn(
-          `[EmailService: ACTION REQUIRED] If using Render Free Tier, note that Render blocks outbound SMTP ports (25, 465, 587). Use the console OTP above (${otp}) to verify.`
-        );
-        throw sendError;
+        throw resendError;
       }
     }
 
     /*
-     * Fallback when SMTP is not configured.
+     * Fallback for development/testing when RESEND_API_KEY is not configured
      */
     console.warn(
-      '[EmailService] SMTP is not configured. OTP is available only in the backend terminal.'
+      '[EmailService] RESEND_API_KEY is not configured. OTP is available only in the backend terminal.'
     );
-    console.log(`[EmailService: BACKEND ONLY] Recipient: ${normalizedEmail}`);
-    console.log(`[EmailService: BACKEND ONLY] OTP: ${otp}`);
-    console.log('[EmailService: BACKEND ONLY] OTP expires in 10 minutes.');
+    console.log(`[EmailService: CONSOLE ONLY] Recipient: ${normalizedEmail}`);
+    console.log(`[EmailService: CONSOLE ONLY] OTP: ${otp}`);
+    console.log('[EmailService: CONSOLE ONLY] OTP expires in 10 minutes.');
   }
 
   public static getLastSentOtpForTest(
