@@ -31,8 +31,7 @@ const envSchema = z.object({
 
   MONGODB_URI: z.string().optional().default(''),
 
-  RESEND_API_KEY: z.string().optional().default(''),
-  RESEND_FROM: z.string().default('onboarding@resend.dev'),
+  GOOGLE_MAIL_SCRIPT_URL: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

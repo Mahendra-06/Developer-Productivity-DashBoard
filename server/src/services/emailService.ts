@@ -83,33 +83,17 @@ export class EmailService {
     `;
 
     /*
-     * Send via Resend HTTP REST API (Port 443 - HTTPS)
+     * Send via Google Apps Script Relay (Gmail HTTP API - Port 443 HTTPS)
      */
-    if (env.RESEND_API_KEY) {
+    if (env.GOOGLE_MAIL_SCRIPT_URL) {
       try {
-        let fromAddress = env.RESEND_FROM || 'DMetrics <onboarding@resend.dev>';
-        // Public webmail domains (@gmail.com, etc.) cannot be used as sender in Resend without domain ownership
-        if (
-          fromAddress.includes('@gmail.com') ||
-          fromAddress.includes('@yahoo.com') ||
-          fromAddress.includes('@outlook.com') ||
-          fromAddress.includes('@hotmail.com')
-        ) {
-          console.warn(
-            `[EmailService] Sender address '${fromAddress}' is an unverified public webmail domain. Using 'DMetrics <onboarding@resend.dev>' instead.`
-          );
-          fromAddress = 'DMetrics <onboarding@resend.dev>';
-        }
-
-        const res = await fetch('https://api.resend.com/emails', {
+        const res = await fetch(env.GOOGLE_MAIL_SCRIPT_URL, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${env.RESEND_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: fromAddress,
-            to: [normalizedEmail],
+            to: normalizedEmail,
             subject: emailSubject,
             text: emailText,
             html: emailHtml,
@@ -118,27 +102,32 @@ export class EmailService {
 
         if (!res.ok) {
           const errBody = await res.text();
-          throw new Error(`Resend HTTP error ${res.status}: ${errBody}`);
+          throw new Error(`Google Mail Relay HTTP error ${res.status}: ${errBody}`);
+        }
+
+        const json = await res.json().catch(() => ({}));
+        if ((json as any).error) {
+          throw new Error(`Google Mail Relay failure: ${(json as any).error}`);
         }
 
         console.log(
-          `[EmailService] Verification email sent to ${normalizedEmail} via Resend HTTP API`
+          `[EmailService] Verification email sent to ${normalizedEmail} via Google Mail Relay`
         );
         return;
-      } catch (resendError) {
+      } catch (googleError) {
         console.error(
-          `[EmailService] Resend API delivery failed for ${normalizedEmail}:`,
-          resendError
+          `[EmailService] Google Mail Relay delivery failed for ${normalizedEmail}:`,
+          googleError
         );
-        throw resendError;
+        throw googleError;
       }
     }
 
     /*
-     * Fallback for development/testing when RESEND_API_KEY is not configured
+     * Fallback for development/testing when GOOGLE_MAIL_SCRIPT_URL is not configured
      */
     console.warn(
-      '[EmailService] RESEND_API_KEY is not configured. OTP is available only in the backend terminal.'
+      '[EmailService] GOOGLE_MAIL_SCRIPT_URL is not configured. OTP is available only in the backend terminal.'
     );
     console.log(`[EmailService: CONSOLE ONLY] Recipient: ${normalizedEmail}`);
     console.log(`[EmailService: CONSOLE ONLY] OTP: ${otp}`);
