@@ -19,8 +19,8 @@ const envSchema = z.object({
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().optional().default(587),
   SMTP_USER: z.string().optional().default(''),
-  SMTP_PASS: z.string().optional().default(''),
-  EMAIL_FROM: z.string().default('no-reply@dmetrics.dev'),
+  SMTP_PASSWORD: z.string().optional().default(''),
+  SMTP_FROM: z.string().default('no-reply@dmetrics.dev'),
 });
 
 const parseEnv = () => {
