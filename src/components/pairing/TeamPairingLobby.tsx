@@ -79,12 +79,19 @@ export const TeamPairingLobby: React.FC = () => {
       const key = member.email || member.id;
 
       // Find tasks assigned to this member
-      const memberTasks = tasks.filter(t =>
-        t.assignee?.id === member.id ||
-        (member.email && t.assignee?.email === member.email) ||
-        (member.username && t.assignee?.username === member.username) ||
-        (member.name && t.assignee?.name && t.assignee.name.toLowerCase() === member.name.toLowerCase())
-      );
+      const memberTasks = tasks.filter(t => {
+        // Never show personal tasks of any member in the Team Lobby
+        const isPersonal = Boolean(t.key && t.key.toUpperCase().startsWith('PERSONAL-'));
+        if (isPersonal) return false;
+
+        const isAssigned = Boolean(
+          (member.id && (t.assignee?.id === member.id || t.assigneeId === member.id)) ||
+          (member.email && t.assignee?.email && member.email.toLowerCase() === t.assignee.email.toLowerCase()) ||
+          (member.username && t.assignee?.username && member.username.toLowerCase() === t.assignee.username.toLowerCase())
+        );
+
+        return isAssigned;
+      });
 
       const activeTasks = memberTasks.filter(t => t.status !== 'done');
       const completedTasks = memberTasks.filter(t => t.status === 'done');
@@ -108,7 +115,9 @@ export const TeamPairingLobby: React.FC = () => {
         if (matchById) projectIds.add(p.id);
       });
       memberTasks.forEach(t => {
-        if (t.projectId) projectIds.add(t.projectId);
+        if (t.projectId && !t.key?.toUpperCase().startsWith('PERSONAL-')) {
+          projectIds.add(t.projectId);
+        }
       });
 
       const memberProjects = projects.filter(p => projectIds.has(p.id));
@@ -158,7 +167,7 @@ export const TeamPairingLobby: React.FC = () => {
 
   // Summary Metrics
   const totalEngineers = teamMembers.length;
-  const activeDeliverablesCount = tasks.filter(t => t.status !== 'done').length;
+  const activeDeliverablesCount = tasks.filter(t => t.status !== 'done' && !t.key?.toUpperCase().startsWith('PERSONAL-')).length;
   const githubConnectedCount = teamMembers.filter(m => m.githubUsername).length;
 
   return (

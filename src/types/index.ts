@@ -22,8 +22,11 @@ export interface Task {
   projectId: string;
   projectName: string;
   assignee: Assignee;
+  assigneeId?: string;
   assignerId?: string;
   assigner?: Assignee;
+  createdById?: string;
+  createdBy?: Assignee;
   storyPoints: number;
   dueDate: string;
   tags: string[];

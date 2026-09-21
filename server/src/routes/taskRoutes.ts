@@ -34,6 +34,7 @@ router.get(
 // Create new task
 router.post(
   '/',
+  optionalAuth,
   validate({ body: createTaskSchema }),
   TaskController.createTask
 );
@@ -41,6 +42,7 @@ router.post(
 // Full update task
 router.put(
   '/:id',
+  optionalAuth,
   validate({ params: idParamSchema, body: updateTaskSchema }),
   TaskController.updateTask
 );
@@ -48,6 +50,7 @@ router.put(
 // Partial update task
 router.patch(
   '/:id',
+  optionalAuth,
   validate({ params: idParamSchema, body: updateTaskSchema }),
   TaskController.updateTask
 );
@@ -55,6 +58,7 @@ router.patch(
 // Dedicated status management endpoint
 router.patch(
   '/:id/status',
+  optionalAuth,
   validate({ params: idParamSchema, body: updateTaskStatusSchema }),
   TaskController.updateTaskStatus
 );
@@ -62,6 +66,7 @@ router.patch(
 // Delete task
 router.delete(
   '/:id',
+  optionalAuth,
   validate({ params: idParamSchema }),
   TaskController.deleteTask
 );

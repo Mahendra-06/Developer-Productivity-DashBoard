@@ -324,15 +324,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             assigner = usersList.find((u: any) => u.id === t.assignerId || u.username === t.assignerId || u.email === t.assignerId);
           }
 
-          const isSelf = assigner && (assigner.id === assigneeId || assigner.username === t.assignee?.username);
-
-          if (!assigner || isSelf) {
+          if (!assigner) {
             const proj = projectsList.find((p: any) => p.id === t.projectId);
             if (proj && proj.lead && proj.lead.id !== assigneeId) {
               assigner = proj.lead;
-            } else {
-              const otherTeammate = usersList.find((u: any) => u.id !== assigneeId && !u.id?.startsWith('usr_gh_'));
-              assigner = otherTeammate || undefined;
             }
           }
           return {
@@ -597,15 +592,82 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const handleTaskCreated = (newTask: any) => setTasks(prev => {
       const existingIndex = prev.findIndex(task => task.id === newTask.id);
-      if (existingIndex === -1) return [newTask, ...prev];
+      if (existingIndex !== -1) {
+        const next = [...prev];
+        next[existingIndex] = { ...next[existingIndex], ...newTask };
+        return next;
+      }
 
-      // A local optimistic task may already have been replaced by the REST
-      // response when Socket.IO delivers the same create event.
-      const next = [...prev];
-      next[existingIndex] = { ...next[existingIndex], ...newTask };
-      return next;
+      // Check role-based visibility before inserting newly created task
+      const role = user?.role || '';
+      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPersonal = Boolean(newTask.key && newTask.key.toUpperCase().startsWith('PERSONAL-'));
+
+      if (user?.id && user.id !== 'usr_guest') {
+        const isAssignee = newTask.assigneeId === user.id ||
+          newTask.assignee?.id === user.id ||
+          (user.email && newTask.assignee?.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user.username && newTask.assignee?.username?.toLowerCase() === user.username.toLowerCase());
+        const isCreator = newTask.createdById === user.id ||
+          newTask.assignerId === user.id ||
+          newTask.assigner?.id === user.id;
+
+        const isOwner = isAssignee || isCreator;
+
+        // Personal tasks are strictly private to their owner across all roles
+        if (isPersonal && !isOwner) {
+          return prev;
+        }
+
+        if (!isPrivileged && !isOwner) {
+          const proj = projects.find(p => p.id === newTask.projectId);
+          const isProjectMember = Boolean(
+            proj && proj.projectType !== 'individual' && !proj.key.toUpperCase().startsWith('PERSONAL-') && (
+              proj.leadId === user.id || (proj.teamIds && proj.teamIds.includes(user.id)) || (!proj.teamIds || proj.teamIds.length === 0)
+            )
+          );
+          if (!isProjectMember) {
+            return prev;
+          }
+        }
+      }
+
+      return [newTask, ...prev];
     });
-    const handleTaskUpdated = (updatedTask: any) => setTasks(prev => prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t));
+    const handleTaskUpdated = (updatedTask: any) => setTasks(prev => {
+      const role = user?.role || '';
+      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPersonal = Boolean(updatedTask.key && updatedTask.key.toUpperCase().startsWith('PERSONAL-'));
+
+      if (user?.id && user.id !== 'usr_guest') {
+        const isAssignee = updatedTask.assigneeId === user.id ||
+          updatedTask.assignee?.id === user.id ||
+          (user.email && updatedTask.assignee?.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user.username && updatedTask.assignee?.username?.toLowerCase() === user.username.toLowerCase());
+        const isCreator = updatedTask.createdById === user.id ||
+          updatedTask.assignerId === user.id ||
+          updatedTask.assigner?.id === user.id;
+
+        const isOwner = isAssignee || isCreator;
+
+        if (isPersonal && !isOwner) {
+          return prev.filter(t => t.id !== updatedTask.id);
+        }
+
+        if (!isPrivileged && !isOwner) {
+          const proj = projects.find(p => p.id === updatedTask.projectId);
+          const isProjectMember = Boolean(
+            proj && proj.projectType !== 'individual' && !proj.key.toUpperCase().startsWith('PERSONAL-') && (
+              proj.leadId === user.id || (proj.teamIds && proj.teamIds.includes(user.id)) || (!proj.teamIds || proj.teamIds.length === 0)
+            )
+          );
+          if (!isProjectMember) {
+            return prev.filter(t => t.id !== updatedTask.id);
+          }
+        }
+      }
+      return prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t);
+    });
     const handleTaskDeleted = ({ id }: { id: string }) => setTasks(prev => prev.filter(t => t.id !== id));
 
     const handleProjectCreated = (newProj: any) => setProjects(prev => [...prev, newProj]);
@@ -838,12 +900,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (filters.status !== 'all' && task.status !== filters.status) return false;
       if (filters.priority !== 'all' && task.priority !== filters.priority) return false;
       if (filters.projectId !== 'all' && task.projectId !== filters.projectId) return false;
-      const activeAssignee = filters.assigneeId !== 'all' ? filters.assigneeId : (user && user.id && user.id !== 'usr_guest' ? user.id : 'all');
-      if (activeAssignee !== 'all') {
-        const isMatch = task.assignee?.id === activeAssignee || 
-          task.assignee?.username === activeAssignee || 
-          task.assignee?.email === activeAssignee ||
-          (task.assignee?.name && task.assignee.name.toLowerCase() === activeAssignee.toLowerCase());
+      if (filters.assigneeId !== 'all') {
+        const isMatch = task.assignee?.id === filters.assigneeId || 
+          task.assigneeId === filters.assigneeId ||
+          (task.assignee?.username && task.assignee.username.toLowerCase() === filters.assigneeId.toLowerCase()) || 
+          (task.assignee?.email && task.assignee.email.toLowerCase() === filters.assigneeId.toLowerCase());
         if (!isMatch) return false;
       }
       return true;
@@ -942,6 +1003,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         projectId: newTaskData.projectId || undefined,
         assigneeId: newTaskData.assignee?.id || newTaskData.assignee?.username || newTaskData.assignee?.email || (user && user.id !== 'usr_guest' ? user.id : 'usr_1'),
         assignerId,
+        createdById: assignerId,
         storyPoints: newTaskData.storyPoints,
         dueDate: newTaskData.dueDate,
         tags: newTaskData.tags,

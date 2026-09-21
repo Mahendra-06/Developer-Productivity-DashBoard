@@ -105,6 +105,8 @@ export interface Task {
   assignee?: User;
   assignerId?: string;
   assigner?: User;
+  createdById?: string;
+  createdBy?: User;
   storyPoints: number;
   dueDate: string;
   tags: string[];

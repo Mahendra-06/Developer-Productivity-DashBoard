@@ -238,6 +238,7 @@ export const createTaskSchema = z.object({
   projectId: z.string().trim().min(1, 'Project ID must not be empty').optional(),
   assigneeId: z.string().trim().min(1, 'Assignee ID is required'),
   assignerId: z.string().trim().optional(),
+  createdById: z.string().trim().optional(),
   storyPoints: z.coerce.number().int('Story points must be an integer').min(0, 'Story points cannot be negative').max(100, 'Story points cannot exceed 100').default(3),
   dueDate: z.string().trim().min(4, 'Valid due date is required'),
   tags: z.array(z.string().trim()).optional().default([]),

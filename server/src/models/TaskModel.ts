@@ -66,6 +66,16 @@ const TaskSchema = new Schema<TaskDocument>(
       ref: 'User',
       index: true,
     },
+    assignerId: {
+      type: String,
+      ref: 'User',
+      index: true,
+    },
+    createdById: {
+      type: String,
+      ref: 'User',
+      index: true,
+    },
     storyPoints: {
       type: Number,
       default: 3,

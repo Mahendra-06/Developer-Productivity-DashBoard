@@ -6,6 +6,68 @@ import { TaskStatus, TaskPriority } from '../types/index.js';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 import { SocketService } from '../services/socketService.js';
 
+export function isPrivilegedRole(role?: string): boolean {
+  if (!role) return false;
+  const normalized = role.toLowerCase().trim();
+  return /\b(admin|manager|lead)\b/i.test(normalized);
+}
+
+export function isPersonalTask(key?: string): boolean {
+  return Boolean(key && key.toUpperCase().startsWith('PERSONAL-'));
+}
+
+export async function checkTaskAccess(task: any, user?: { id: string; email?: string; role?: string; username?: string }) {
+  if (!user) return;
+  const isPrivileged = isPrivilegedRole(user.role);
+  const authUserId = user.id;
+  const authEmail = user.email?.toLowerCase();
+  const authUsername = (user as any).username?.toLowerCase();
+
+  const isAssignee = task.assigneeId === authUserId ||
+    (task.assignee && (
+      task.assignee.id === authUserId ||
+      (authEmail && task.assignee.email?.toLowerCase() === authEmail) ||
+      (authUsername && task.assignee.username?.toLowerCase() === authUsername)
+    ));
+
+  const isCreator = (task.createdById && task.createdById === authUserId) ||
+    (task.assignerId && task.assignerId === authUserId) ||
+    (task.assigner && (
+      task.assigner.id === authUserId ||
+      (authEmail && task.assigner.email?.toLowerCase() === authEmail) ||
+      (authUsername && task.assigner.username?.toLowerCase() === authUsername)
+    ));
+
+  const isOwner = isAssignee || isCreator;
+  const isPersonal = isPersonalTask(task.key);
+
+  // Personal tasks are strictly private to their owner, even across privileged roles
+  if (isPersonal && !isOwner) {
+    throw ApiError.notFound(`Task with ID or key '${task.id || task.key}' not found`);
+  }
+
+  if (isPrivileged || isOwner) {
+    return;
+  }
+
+  // Check if member is part of the task's team project
+  if (task.projectId) {
+    const project = await db.getProjectById(task.projectId);
+    if (project && project.projectType !== 'individual' && !project.key.toUpperCase().startsWith('PERSONAL-')) {
+      const isMember = (
+        project.leadId === authUserId ||
+        (project.teamIds && project.teamIds.includes(authUserId)) ||
+        (!project.teamIds || project.teamIds.length === 0)
+      );
+      if (isMember) {
+        return;
+      }
+    }
+  }
+
+  throw ApiError.notFound(`Task with ID or key '${task.id || task.key}' not found`);
+}
+
 export class TaskController {
   static getAllTasks = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -33,8 +95,13 @@ export class TaskController {
         scope?: string;
       };
 
-      // Filter by req.user.id if scope is 'mine', otherwise filter by explicit assigneeId if passed
-      const userId = scope === 'mine' ? req.user?.id : assigneeId;
+      const userId = req.query.userId as string | undefined;
+      const authUser = req.user ? {
+        id: req.user.id,
+        email: req.user.email,
+        username: (req.user as any).username,
+        role: req.user.role,
+      } : undefined;
 
       const result = await db.getTasks({
         status,
@@ -47,6 +114,8 @@ export class TaskController {
         page,
         limit,
         userId,
+        scope,
+        authUser,
       });
 
       ResponseHelper.success(res, result.tasks, 'Tasks retrieved successfully', 200, {
@@ -60,20 +129,23 @@ export class TaskController {
     }
   };
 
-  static getTaskById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static getTaskById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const task = await db.getTaskById(id);
       if (!task) {
         throw ApiError.notFound(`Task with ID or key '${id}' not found`);
       }
+
+      await checkTaskAccess(task, req.user);
+
       ResponseHelper.success(res, task, 'Task retrieved successfully');
     } catch (error) {
       next(error);
     }
   };
 
-  static createTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static createTask = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { projectId, assigneeId } = req.body;
 
@@ -111,7 +183,15 @@ export class TaskController {
         }
       }
 
-      const newTask = await db.createTask({ ...req.body, projectId: project.id, assigneeId });
+      // Always prioritize verified JWT req.user.id for creator identification
+      const creatorId = req.user?.id || req.body.createdById || req.body.assignerId;
+      const newTask = await db.createTask({
+        ...req.body,
+        projectId: project.id,
+        assigneeId,
+        createdById: creatorId,
+        assignerId: creatorId,
+      });
       SocketService.emitEvent('taskCreated', newTask);
       ResponseHelper.created(res, newTask, 'Task created successfully', `/api/tasks/${newTask.id}`);
     } catch (error) {
@@ -119,13 +199,15 @@ export class TaskController {
     }
   };
 
-  static updateTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static updateTask = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const existingTask = await db.getTaskById(id);
       if (!existingTask) {
         throw ApiError.notFound(`Task with ID '${id}' not found`);
       }
+
+      await checkTaskAccess(existingTask, req.user);
 
       const { projectId, assigneeId } = req.body;
 
@@ -155,7 +237,7 @@ export class TaskController {
     }
   };
 
-  static updateTaskStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static updateTaskStatus = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const { status } = req.body as { status: TaskStatus };
@@ -165,6 +247,8 @@ export class TaskController {
         throw ApiError.notFound(`Task with ID '${id}' not found`);
       }
 
+      await checkTaskAccess(existingTask, req.user);
+
       const updated = await db.updateTaskStatus(id, status);
       SocketService.emitEvent('taskUpdated', updated);
       ResponseHelper.success(res, updated, `Task status transitioned to '${status}' successfully`);
@@ -173,9 +257,16 @@ export class TaskController {
     }
   };
 
-  static deleteTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static deleteTask = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
+      const existingTask = await db.getTaskById(id);
+      if (!existingTask) {
+        throw ApiError.notFound(`Task with ID '${id}' not found`);
+      }
+
+      await checkTaskAccess(existingTask, req.user);
+
       const deleted = await db.deleteTask(id);
       if (!deleted) {
         throw ApiError.notFound(`Task with ID '${id}' not found`);
@@ -191,7 +282,13 @@ export class TaskController {
     try {
       const { scope } = req.query as { scope?: string };
       const userId = scope === 'mine' ? req.user?.id : undefined;
-      const metrics = await db.getSummaryMetrics({ userId });
+      const authUser = req.user ? {
+        id: req.user.id,
+        email: req.user.email,
+        username: (req.user as any).username,
+        role: req.user.role,
+      } : undefined;
+      const metrics = await db.getSummaryMetrics({ userId, authUser });
       ResponseHelper.success(res, metrics, 'Summary metrics retrieved successfully');
     } catch (error) {
       next(error);

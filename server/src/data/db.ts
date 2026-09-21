@@ -103,6 +103,13 @@ export interface IDatabase {
     page?: number;
     limit?: number;
     userId?: string;
+    scope?: string;
+    authUser?: {
+      id: string;
+      email?: string;
+      username?: string;
+      role?: string;
+    };
   }): Promise<{ tasks: Task[]; total: number; page: number; limit: number; totalPages: number }>;
   getTaskById(idOrKey: string): Promise<Task | null | undefined>;
   createTask(taskData: {
@@ -113,6 +120,8 @@ export interface IDatabase {
     description: string;
     projectId: string;
     assigneeId: string;
+    assignerId?: string;
+    createdById?: string;
     dueDate: string;
     status?: TaskStatus;
     priority?: TaskPriority;
@@ -123,7 +132,15 @@ export interface IDatabase {
   updateTaskStatus(id: string, status: TaskStatus): Promise<Task | null | undefined>;
   deleteTask(id: string): Promise<boolean>;
 
-  getSummaryMetrics(filters?: { userId?: string }): Promise<{
+  getSummaryMetrics(filters?: {
+    userId?: string;
+    authUser?: {
+      id: string;
+      email?: string;
+      username?: string;
+      role?: string;
+    };
+  }): Promise<{
     tasks: { total: number; backlog: number; inProgress: number; inReview: number; done: number };
     projects: { total: number; onTrack: number; atRisk: number; delayed: number };
     users: { total: number };
@@ -972,10 +989,76 @@ export class LocalPersistentDatabase implements IDatabase {
     page?: number;
     limit?: number;
     userId?: string;
+    scope?: string;
+    authUser?: {
+      id: string;
+      email?: string;
+      username?: string;
+      role?: string;
+    };
   }): Promise<{ tasks: Task[]; total: number; page: number; limit: number; totalPages: number }> {
     let result = [...this.tasks];
 
-    // Scope to user: only tasks assigned to this user
+    // Role-based visibility enforcement for authenticated users
+    if (filters?.authUser) {
+      const authUser = filters.authUser;
+      const role = authUser.role || '';
+      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+
+      const authUserId = authUser.id;
+      const authEmail = authUser.email?.toLowerCase();
+      const authUsername = authUser.username?.toLowerCase();
+
+      // Find authorized team project IDs for this member
+      const authorizedProjectIds = new Set(
+        this.projects
+          .filter(p => {
+            if (p.projectType === 'individual' || p.key.toUpperCase().startsWith('PERSONAL-')) {
+              return false;
+            }
+            return (
+              p.leadId === authUserId ||
+              (p.teamIds && p.teamIds.includes(authUserId)) ||
+              (p.projectType === 'team' && (!p.teamIds || p.teamIds.length === 0))
+            );
+          })
+          .map(p => p.id)
+      );
+
+      result = result.filter(t => {
+        const isAssignee = t.assigneeId === authUserId ||
+          (t.assignee && (
+            t.assignee.id === authUserId ||
+            (authEmail && t.assignee.email?.toLowerCase() === authEmail) ||
+            (authUsername && t.assignee.username?.toLowerCase() === authUsername)
+          ));
+
+        const isCreator = (t.createdById && t.createdById === authUserId) ||
+          (t.assignerId && t.assignerId === authUserId) ||
+          (t.assigner && (
+            t.assigner.id === authUserId ||
+            (authEmail && t.assigner.email?.toLowerCase() === authEmail) ||
+            (authUsername && t.assigner.username?.toLowerCase() === authUsername)
+          ));
+
+        const isOwner = isAssignee || isCreator;
+        const isPersonal = Boolean(t.key && t.key.toUpperCase().startsWith('PERSONAL-'));
+
+        // Personal tasks are strictly private to their owner across all roles
+        if (isPersonal) {
+          return isOwner;
+        }
+
+        if (isPrivileged) {
+          return true;
+        }
+
+        const isTeamProjectTask = Boolean(t.projectId && authorizedProjectIds.has(t.projectId));
+        return isOwner || isTeamProjectTask;
+      });
+    }
+
+    // Scope to user: explicit user query filtering (e.g. scope: 'mine')
     if (filters?.userId) {
       result = result.filter(t => 
         t.assigneeId === filters.userId || 
@@ -997,10 +1080,12 @@ export class LocalPersistentDatabase implements IDatabase {
         avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(t.assigneeId || 'teammate')}`
       } as User);
       const project = this.projects.find(p => p.id === t.projectId);
-      let assigner = t.assignerId ? (this.users.find(
-        u => u.id === t.assignerId || 
-        (u.username && u.username.toLowerCase() === t.assignerId?.toLowerCase()) || 
-        (u.email && u.email.toLowerCase() === t.assignerId?.toLowerCase())
+      const createdById = t.createdById || t.assignerId;
+      const assignerId = t.assignerId || t.createdById;
+      let assigner = assignerId ? (this.users.find(
+        u => u.id === assignerId || 
+        (u.username && u.username.toLowerCase() === assignerId.toLowerCase()) || 
+        (u.email && u.email.toLowerCase() === assignerId.toLowerCase())
       ) || t.assigner) : t.assigner;
 
       if (!assigner || assigner.id === assignee.id) {
@@ -1017,7 +1102,9 @@ export class LocalPersistentDatabase implements IDatabase {
       return {
         ...t,
         assignee,
+        assignerId,
         assigner,
+        createdById,
         projectName: project ? project.name : (t.projectName || 'General'),
       };
     });
@@ -1034,7 +1121,7 @@ export class LocalPersistentDatabase implements IDatabase {
       result = result.filter(t => t.projectId === filters.projectId);
     }
 
-    if (filters?.assigneeId) {
+    if (filters?.assigneeId && filters.assigneeId !== 'all') {
       result = result.filter(t => 
         t.assigneeId === filters.assigneeId || 
         (t.assignee && (t.assignee.id === filters.assigneeId || t.assignee.username === filters.assigneeId || t.assignee.email === filters.assigneeId))
@@ -1135,18 +1222,22 @@ export class LocalPersistentDatabase implements IDatabase {
   }
 
   public async createTask(taskData: {
+    id?: string;
+    createdAt?: string;
+    updatedAt?: string;
     title: string;
     description: string;
     projectId: string;
     assigneeId: string;
     assignerId?: string;
+    createdById?: string;
     dueDate: string;
     status?: TaskStatus;
     priority?: TaskPriority;
     storyPoints?: number;
     tags?: string[];
   }): Promise<Task> {
-    const id = `task_${Date.now()}`;
+    const id = taskData.id || `task_${Date.now()}`;
     // Internal task creation must resolve private personal projects as well as
     // team projects. Public project listings intentionally apply visibility
     // rules, so use the backing store here instead of the filtered accessor.
@@ -1173,10 +1264,13 @@ export class LocalPersistentDatabase implements IDatabase {
       avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(taskData.assigneeId || 'teammate')}`
     } as User;
 
-    const assigner = taskData.assignerId ? (this.users.find(
-      u => u.id === taskData.assignerId || 
-      (u.username && u.username.toLowerCase() === taskData.assignerId?.toLowerCase()) || 
-      (u.email && u.email.toLowerCase() === taskData.assignerId?.toLowerCase())
+    const assignerId = taskData.assignerId || taskData.createdById;
+    const createdById = taskData.createdById || taskData.assignerId;
+
+    const assigner = assignerId ? (this.users.find(
+      u => u.id === assignerId || 
+      (u.username && u.username.toLowerCase() === assignerId.toLowerCase()) || 
+      (u.email && u.email.toLowerCase() === assignerId.toLowerCase())
     )) : undefined;
 
     const newTask: Task = {
@@ -1190,13 +1284,15 @@ export class LocalPersistentDatabase implements IDatabase {
       projectName: project ? project.name : 'General',
       assigneeId: taskData.assigneeId,
       assignee,
-      assignerId: taskData.assignerId,
+      assignerId,
       assigner,
+      createdById,
+      createdBy: assigner,
       storyPoints: taskData.storyPoints || 3,
       dueDate: taskData.dueDate,
       tags: taskData.tags || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: taskData.createdAt || new Date().toISOString(),
+      updatedAt: taskData.updatedAt || new Date().toISOString(),
     };
 
     this.tasks.push(newTask);
@@ -1295,9 +1391,52 @@ export class LocalPersistentDatabase implements IDatabase {
   // METRICS & DASHBOARD AGGREGATES
   // ==========================================
 
-  public async getSummaryMetrics(filters?: { userId?: string }) {
+  public async getSummaryMetrics(filters?: {
+    userId?: string;
+    authUser?: {
+      id: string;
+      email?: string;
+      username?: string;
+      role?: string;
+    };
+  }) {
     let scopedTasks = [...this.tasks];
     let scopedProjects = [...this.projects];
+
+    if (filters?.authUser) {
+      const authUser = filters.authUser;
+      const role = authUser.role || '';
+      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+
+      const authorizedProjectIds = new Set(
+        this.projects
+          .filter(p => {
+            if (p.projectType === 'individual' || p.key.toUpperCase().startsWith('PERSONAL-')) {
+              return false;
+            }
+            return (
+              p.leadId === authUser.id ||
+              (p.teamIds && p.teamIds.includes(authUser.id)) ||
+              (p.projectType === 'team' && (!p.teamIds || p.teamIds.length === 0))
+            );
+          })
+          .map(p => p.id)
+      );
+
+      scopedTasks = scopedTasks.filter(t => {
+        const isOwner = (
+          t.assigneeId === authUser.id ||
+          t.createdById === authUser.id ||
+          t.assignerId === authUser.id
+        );
+        const isPersonal = Boolean(t.key && t.key.toUpperCase().startsWith('PERSONAL-'));
+        if (isPersonal) return isOwner;
+        if (isPrivileged) return true;
+        const isTeamProjectTask = Boolean(t.projectId && authorizedProjectIds.has(t.projectId));
+        return isOwner || isTeamProjectTask;
+      });
+    }
+
     if (filters?.userId) {
       scopedTasks = scopedTasks.filter(t => t.assigneeId === filters.userId);
       scopedProjects = scopedProjects.filter(p => p.leadId === filters.userId || (p.teamIds || []).includes(filters.userId!));

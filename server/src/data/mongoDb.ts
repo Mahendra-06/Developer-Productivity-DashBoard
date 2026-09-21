@@ -874,35 +874,99 @@ export class MongoDatabase {
     page?: number;
     limit?: number;
     userId?: string;
+    scope?: string;
+    authUser?: {
+      id: string;
+      email?: string;
+      username?: string;
+      role?: string;
+    };
   }): Promise<{ tasks: Task[]; total: number; page: number; limit: number; totalPages: number }> {
-    const query: any = {};
+    const andClauses: any[] = [];
+
+    // Role-based visibility enforcement for authenticated users
+    if (filters?.authUser) {
+      const authUser = filters.authUser;
+      const role = authUser.role || '';
+      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+
+      const creatorOrAssigneeClauses: any[] = [
+        { assigneeId: authUser.id },
+        { createdById: authUser.id },
+        { assignerId: authUser.id },
+      ];
+      if (authUser.username) {
+        creatorOrAssigneeClauses.push({ 'assignee.username': authUser.username });
+      }
+      if (authUser.email) {
+        creatorOrAssigneeClauses.push({ 'assignee.email': authUser.email });
+      }
+
+      if (!isPrivileged) {
+        // Find team projects that this member is part of
+        const userProjects = await ProjectModel.find({
+          $or: [
+            { leadId: authUser.id },
+            { teamIds: authUser.id },
+            { projectType: 'team', teamIds: { $size: 0 } },
+            { projectType: 'team', teamIds: { $exists: false } }
+          ],
+          key: { $not: /^PERSONAL-/i },
+          projectType: { $ne: 'individual' }
+        }, 'id').lean();
+
+        const authorizedProjectIds = userProjects.map((p: any) => p.id || String(p._id));
+
+        const regularMemberClauses: any[] = [...creatorOrAssigneeClauses];
+        if (authorizedProjectIds.length > 0) {
+          regularMemberClauses.push({
+            projectId: { $in: authorizedProjectIds },
+            key: { $not: /^PERSONAL-/i }
+          });
+        }
+
+        andClauses.push({ $or: regularMemberClauses });
+      } else {
+        const personalRegex = /^PERSONAL-/i;
+        andClauses.push({
+          $or: [
+            { key: { $not: personalRegex } },
+            ...creatorOrAssigneeClauses
+          ]
+        });
+      }
+    }
 
     // Scope to user: only tasks assigned to this user
     if (filters?.userId) {
-      query.assigneeId = filters.userId;
+      andClauses.push({ assigneeId: filters.userId });
     }
 
     if (filters?.status && filters.status !== 'all') {
-      query.status = filters.status;
+      andClauses.push({ status: filters.status });
     }
     if (filters?.priority && filters.priority !== 'all') {
-      query.priority = filters.priority;
+      andClauses.push({ priority: filters.priority });
     }
     if (filters?.projectId) {
-      query.projectId = filters.projectId;
+      andClauses.push({ projectId: filters.projectId });
     }
-    if (filters?.assigneeId) {
-      query.assigneeId = filters.assigneeId;
+    if (filters?.assigneeId && filters.assigneeId !== 'all') {
+      andClauses.push({ assigneeId: filters.assigneeId });
     }
     if (filters?.search) {
       const regex = new RegExp(filters.search, 'i');
-      query.$or = [
-        { title: regex },
-        { key: regex },
-        { description: regex },
-        { tags: { $in: [regex] } },
-      ];
+      andClauses.push({
+        $or: [
+          { title: regex },
+          { key: regex },
+          { description: regex },
+          { tags: { $in: [regex] } },
+        ],
+      });
     }
+
+    const query = andClauses.length > 0 ? { $and: andClauses } : {};
 
     const [rawTasks, users, projects] = await Promise.all([
       TaskModel.find(query).lean(),
@@ -925,10 +989,12 @@ export class MongoDatabase {
         avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(t.assigneeId || 'teammate')}`
       } as User);
       const project = projects.find(p => p.id === t.projectId);
-      let assigner = (t as any).assignerId ? users.find(u =>
-        u.id === (t as any).assignerId ||
-        (u.username && u.username.toLowerCase() === ((t as any).assignerId || '').toLowerCase()) ||
-        (u.email && u.email.toLowerCase() === ((t as any).assignerId || '').toLowerCase())
+      const createdById = (t as any).createdById || (t as any).assignerId;
+      const assignerId = (t as any).assignerId || (t as any).createdById;
+      let assigner = assignerId ? users.find(u =>
+        u.id === assignerId ||
+        (u.username && u.username.toLowerCase() === assignerId.toLowerCase()) ||
+        (u.email && u.email.toLowerCase() === assignerId.toLowerCase())
       ) : (t as any).assigner;
 
       if (!assigner || assigner.id === assignee.id) {
@@ -945,7 +1011,9 @@ export class MongoDatabase {
       return {
         ...t,
         assignee,
+        assignerId,
         assigner,
+        createdById,
         projectName: project ? project.name : (t.projectName || 'General'),
       } as Task;
     });
@@ -1012,17 +1080,22 @@ export class MongoDatabase {
   }
 
   public async createTask(taskData: {
+    id?: string;
+    createdAt?: string;
+    updatedAt?: string;
     title: string;
     description: string;
     projectId: string;
     assigneeId: string;
+    assignerId?: string;
+    createdById?: string;
     dueDate: string;
     status?: TaskStatus;
     priority?: TaskPriority;
     storyPoints?: number;
     tags?: string[];
   }): Promise<Task> {
-    const id = `task_${Date.now()}`;
+    const id = taskData.id || `task_${Date.now()}`;
     const project = await ProjectModel.findOne({ id: taskData.projectId }).lean();
     const projectKey = project ? project.key : 'TASK';
 
@@ -1034,9 +1107,9 @@ export class MongoDatabase {
     }, 100);
     const key = `${projectKey}-${maxNum + 1}`;
 
+    const users = await this.getUsers();
     let assignee = await this.getUserById(taskData.assigneeId);
     if (!assignee) {
-      const users = await this.getUsers();
       assignee = users.find(u =>
         u.id === taskData.assigneeId ||
         (u.username && u.username.toLowerCase() === (taskData.assigneeId || '').toLowerCase()) ||
@@ -1067,6 +1140,14 @@ export class MongoDatabase {
       updatedAt: new Date().toISOString(),
     };
 
+    const assignerId = taskData.assignerId || taskData.createdById;
+    const createdById = taskData.createdById || taskData.assignerId;
+    const assigner = assignerId ? users.find(u =>
+      u.id === assignerId ||
+      (u.username && u.username.toLowerCase() === assignerId.toLowerCase()) ||
+      (u.email && u.email.toLowerCase() === assignerId.toLowerCase())
+    ) : undefined;
+
     const newTask = new TaskModel({
       id,
       key,
@@ -1077,11 +1158,13 @@ export class MongoDatabase {
       projectId: taskData.projectId,
       projectName: project ? project.name : 'General',
       assigneeId: resolvedAssignee.id,
+      assignerId,
+      createdById,
       storyPoints: taskData.storyPoints || 3,
       dueDate: taskData.dueDate,
       tags: taskData.tags || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: taskData.createdAt || new Date().toISOString(),
+      updatedAt: taskData.updatedAt || new Date().toISOString(),
     });
 
     const saved = await newTask.save();
@@ -1089,6 +1172,9 @@ export class MongoDatabase {
     return {
       ...saved.toObject(),
       assignee: resolvedAssignee,
+      assigner,
+      createdById,
+      assignerId,
     } as Task;
   }
 
@@ -1188,17 +1274,71 @@ export class MongoDatabase {
   // SUMMARY METRICS (using Mongoose Aggregations)
   // ==========================================
 
-  public async getSummaryMetrics(filters?: { userId?: string }): Promise<{
+  public async getSummaryMetrics(filters?: {
+    userId?: string;
+    authUser?: {
+      id: string;
+      email?: string;
+      username?: string;
+      role?: string;
+    };
+  }): Promise<{
     tasks: { total: number; backlog: number; inProgress: number; inReview: number; done: number };
     projects: { total: number; onTrack: number; atRisk: number; delayed: number };
     users: { total: number };
   }> {
-    const taskQuery: any = {};
+    const taskAndClauses: any[] = [];
     const projQuery: any = {};
+
+    if (filters?.authUser) {
+      const authUser = filters.authUser;
+      const role = authUser.role || '';
+      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+
+      const creatorOrAssigneeClauses = [
+        { assigneeId: authUser.id },
+        { createdById: authUser.id },
+        { assignerId: authUser.id },
+      ];
+
+      if (!isPrivileged) {
+        const userProjects = await ProjectModel.find({
+          $or: [
+            { leadId: authUser.id },
+            { teamIds: authUser.id },
+            { projectType: 'team', teamIds: { $size: 0 } },
+            { projectType: 'team', teamIds: { $exists: false } }
+          ],
+          key: { $not: /^PERSONAL-/i },
+          projectType: { $ne: 'individual' }
+        }, 'id').lean();
+
+        const authorizedProjectIds = userProjects.map((p: any) => p.id || String(p._id));
+        const regularMemberClauses: any[] = [...creatorOrAssigneeClauses];
+        if (authorizedProjectIds.length > 0) {
+          regularMemberClauses.push({
+            projectId: { $in: authorizedProjectIds },
+            key: { $not: /^PERSONAL-/i }
+          });
+        }
+        taskAndClauses.push({ $or: regularMemberClauses });
+      } else {
+        const personalRegex = /^PERSONAL-/i;
+        taskAndClauses.push({
+          $or: [
+            { key: { $not: personalRegex } },
+            ...creatorOrAssigneeClauses
+          ]
+        });
+      }
+    }
+
     if (filters?.userId) {
-      taskQuery.assigneeId = filters.userId;
+      taskAndClauses.push({ assigneeId: filters.userId });
       projQuery.$or = [{ leadId: filters.userId }, { teamIds: filters.userId }];
     }
+
+    const taskQuery = taskAndClauses.length > 0 ? { $and: taskAndClauses } : {};
 
     const [allTasks, allProjects, totalUsers] = await Promise.all([
       TaskModel.find(taskQuery, 'status').lean(),
