@@ -43,7 +43,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   const [username, setUsername] = useState('');
   const [role, setRole] = useState('Senior Full-Stack Engineer');
   const [githubUsername, setGithubUsername] = useState('');
-  const [projectId, setProjectId] = useState(defaultProjectId || (projects[0]?.id || ''));
+  const [projectId, setProjectId] = useState(defaultProjectId || '');
   const [initialTaskTitle, setInitialTaskTitle] = useState('');
   const [storyPoints, setStoryPoints] = useState<number>(3);
 
@@ -57,6 +57,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     setUsername('');
     setRole('Senior Full-Stack Engineer');
     setGithubUsername('');
+    setProjectId(defaultProjectId || '');
     setInitialTaskTitle('');
     setErrorMessage(null);
     setSuccessInfo(null);

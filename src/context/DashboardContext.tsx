@@ -312,9 +312,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ]);
 
 
+      const usersList: any[] = backendUsers.status === 'fulfilled' && Array.isArray(backendUsers.value) ? backendUsers.value : [];
+      const projectsList: any[] = backendProjects.status === 'fulfilled' && Array.isArray(backendProjects.value) ? backendProjects.value : [];
+
       if (backendTasks.status === 'fulfilled' && Array.isArray(backendTasks.value)) {
-        const usersList: any[] = backendUsers.status === 'fulfilled' && Array.isArray(backendUsers.value) ? backendUsers.value : [];
-        const projectsList: any[] = backendProjects.status === 'fulfilled' && Array.isArray(backendProjects.value) ? backendProjects.value : [];
 
         const mappedTasks = backendTasks.value.map((t: any) => {
           let assigner = t.assigner;
@@ -370,22 +371,29 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
 
         mappedProjects = accessibleProjects.map((p: any) => {
-          const isSyntheticLead = !p.lead || p.lead.id?.startsWith('usr_gh_') || p.leadId?.startsWith('usr_gh_');
-          const effectiveLead = isSyntheticLead && effectiveUser && effectiveUser.id !== 'usr_guest' ? {
-            id: effectiveUser.id,
-            name: effectiveUser.name,
-            avatar: effectiveUser.avatar,
-            role: effectiveUser.role,
-            email: effectiveUser.email,
-            username: effectiveUser.username,
-            githubUsername: effectiveUser.githubUsername,
-            githubUrl: effectiveUser.githubUrl
-          } : (p.lead || effectiveUser);
+          let projectLead = p.lead;
+          if (!projectLead && p.leadId) {
+            projectLead = usersList.find((u: any) => u.id === p.leadId || u.username === p.leadId || u.email === p.leadId);
+          }
+          if (!projectLead && p.leadId && effectiveUser && (effectiveUser.id === p.leadId || effectiveUser.id === 'usr_guest')) {
+            projectLead = effectiveUser;
+          }
+
+          let projectTeam: any[] = [];
+          if (Array.isArray(p.team) && p.team.length > 0) {
+            projectTeam = p.team;
+          } else if (Array.isArray(p.teamIds) && p.teamIds.length > 0) {
+            projectTeam = p.teamIds
+              .map((tid: string) => usersList.find((u: any) => u.id === tid || u.username === tid || u.email === tid) || (effectiveUser && effectiveUser.id === tid ? effectiveUser : null))
+              .filter(Boolean);
+          } else if (projectLead) {
+            projectTeam = [projectLead];
+          }
 
           return {
             ...p,
-            lead: effectiveLead,
-            team: Array.isArray(p.team) && p.team.length > 0 ? p.team : [effectiveLead]
+            lead: projectLead || p.lead,
+            team: projectTeam
           };
         });
         setProjects(mappedProjects);

@@ -35,8 +35,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, pro
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
   const [projectType, setProjectType] = useState<ProjectCategory>('team');
-  const [leadId, setLeadId] = useState(teamMembers[0]?.id || 'usr_1');
-  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+  const [leadId, setLeadId] = useState(user?.id || teamMembers[0]?.id || 'usr_1');
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([user?.id || teamMembers[0]?.id || 'usr_1']);
   const [deadline, setDeadline] = useState(getDefaultDeadline());
   const [color, setColor] = useState('#6366f1');
   const [status, setStatus] = useState<ProjectStatus>('on_track');
@@ -51,32 +51,32 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, pro
       setKey(project.key || '');
       setDescription(project.description || '');
       setProjectType(project.projectType || 'team');
-      setLeadId(project.leadId || project.lead?.id || teamMembers[0]?.id || 'usr_1');
+      setLeadId(project.leadId || project.lead?.id || user?.id || teamMembers[0]?.id || 'usr_1');
       setSelectedTeamIds(project.teamIds || (project.team ? project.team.map((m: any) => m.id) : []));
       setDeadline(project.deadline || getDefaultDeadline());
       setColor(project.color || '#6366f1');
       setStatus(project.status || 'on_track');
       setRepoUrl(project.repoUrl || '');
     } else if (teamMembers.length > 0) {
+      const defaultLead = user?.id || teamMembers[0].id;
       if (!selectedTeamIds.length) {
-        setSelectedTeamIds(teamMembers.map(m => m.id));
+        setSelectedTeamIds([defaultLead]);
       }
       if (!leadId) {
-        setLeadId(projectType === 'individual' ? (user?.id || teamMembers[0].id) : teamMembers[0].id);
+        setLeadId(defaultLead);
       }
     }
   }, [teamMembers, user, projectType, project, isOpen]);
 
   const handleProjectTypeChange = (newType: ProjectCategory) => {
     setProjectType(newType);
+    const defaultLead = leadId || user?.id || teamMembers[0]?.id || 'usr_1';
     if (newType === 'individual') {
-      const soloId = user?.id || teamMembers[0]?.id || 'usr_1';
-      setLeadId(soloId);
-      setSelectedTeamIds([soloId]);
+      setLeadId(defaultLead);
+      setSelectedTeamIds([defaultLead]);
     } else {
-      if (teamMembers.length > 0) {
-        setSelectedTeamIds(teamMembers.map(m => m.id));
-      }
+      setLeadId(defaultLead);
+      setSelectedTeamIds(prev => prev.length > 0 ? prev : [defaultLead]);
     }
   };
 
@@ -176,6 +176,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, pro
       setDescription('');
       setRepoUrl('');
       setProjectType('team');
+      const resetLead = user?.id || teamMembers[0]?.id || 'usr_1';
+      setLeadId(resetLead);
+      setSelectedTeamIds([resetLead]);
       onClose();
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to save project. Please check if the project key is already taken.');

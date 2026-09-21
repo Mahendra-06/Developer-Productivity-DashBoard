@@ -23,7 +23,15 @@ export const ProfileDossierModal: React.FC<ProfileDossierModalProps> = ({ isOpen
   const { user, tasks, prs, projects } = useDashboard();
   const [copied, setCopied] = useState(false);
 
-  const activeProject = projects.length > 0 ? projects[0] : null;
+  const myProjects = projects.filter(p => 
+    p.leadId === user.id || 
+    p.lead?.id === user.id || 
+    (user.email && p.lead?.email?.toLowerCase() === user.email.toLowerCase()) ||
+    (user.username && p.lead?.username?.toLowerCase() === user.username.toLowerCase()) ||
+    (Boolean(user.id) && Array.isArray(p.teamIds) && p.teamIds.includes(user.id!)) ||
+    (Array.isArray(p.team) && p.team.some((m: any) => m.id === user.id || (user.email && m.email?.toLowerCase() === user.email.toLowerCase())))
+  );
+  const activeProject = myProjects.length > 0 ? myProjects[0] : null;
   const completedTasks = tasks.filter(t => t.status === 'done');
   const completedPoints = completedTasks.reduce((acc, t) => acc + (t.storyPoints || 0), 0);
   const sprintCycle = activeProject ? `${activeProject.name} Active Cycle` : 'Active Sprint Cycle';
