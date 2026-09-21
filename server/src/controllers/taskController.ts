@@ -9,7 +9,7 @@ import { SocketService } from '../services/socketService.js';
 export function isPrivilegedRole(role?: string): boolean {
   if (!role) return false;
   const normalized = role.toLowerCase().trim();
-  return /\b(admin|manager|lead)\b/i.test(normalized);
+  return /\b(admin|manager|lead|staff|architect|principal)\b/i.test(normalized);
 }
 
 export function isPersonalTask(key?: string): boolean {
@@ -17,7 +17,15 @@ export function isPersonalTask(key?: string): boolean {
 }
 
 export async function checkTaskAccess(task: any, user?: { id: string; email?: string; role?: string; username?: string }) {
-  if (!user) return;
+  const isPersonal = isPersonalTask(task.key);
+
+  if (!user) {
+    if (isPersonal) {
+      throw ApiError.notFound(`Task with ID or key '${task.id || task.key}' not found`);
+    }
+    return;
+  }
+
   const isPrivileged = isPrivilegedRole(user.role);
   const authUserId = user.id;
   const authEmail = user.email?.toLowerCase();
@@ -39,30 +47,20 @@ export async function checkTaskAccess(task: any, user?: { id: string; email?: st
     ));
 
   const isOwner = isAssignee || isCreator;
-  const isPersonal = isPersonalTask(task.key);
 
   // Personal tasks are strictly private to their owner, even across privileged roles
   if (isPersonal && !isOwner) {
     throw ApiError.notFound(`Task with ID or key '${task.id || task.key}' not found`);
   }
 
-  if (isPrivileged || isOwner) {
+  // Privileged roles retain broader team task visibility
+  if (isPrivileged) {
     return;
   }
 
-  // Check if member is part of the task's team project
-  if (task.projectId) {
-    const project = await db.getProjectById(task.projectId);
-    if (project && project.projectType !== 'individual' && !project.key.toUpperCase().startsWith('PERSONAL-')) {
-      const isMember = (
-        project.leadId === authUserId ||
-        (project.teamIds && project.teamIds.includes(authUserId)) ||
-        (!project.teamIds || project.teamIds.length === 0)
-      );
-      if (isMember) {
-        return;
-      }
-    }
+  // Regular members can only view/mutate tasks they created or are assigned to
+  if (isOwner) {
+    return;
   }
 
   throw ApiError.notFound(`Task with ID or key '${task.id || task.key}' not found`);
@@ -183,14 +181,33 @@ export class TaskController {
         }
       }
 
-      // Always prioritize verified JWT req.user.id for creator identification
-      const creatorId = req.user?.id || req.body.createdById || req.body.assignerId;
+      // Always derive creator from the verified JWT user context, rejecting client impersonation
+      const creatorId = req.user ? req.user.id : (req.body.createdById || req.body.assignerId);
+      const assignerId = req.user ? req.user.id : (req.body.assignerId || creatorId);
+
+      // Verify assignment permission: regular members can assign to themselves or teammates in projects they are part of
+      if (req.user && assigneeId !== req.user.id && project) {
+        const isPrivileged = isPrivilegedRole(req.user.role);
+        const isProjectMember = project.leadId === req.user.id || (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id));
+        if (!isPrivileged && !isProjectMember) {
+          throw ApiError.forbidden('You do not have permission to assign tasks in this project');
+        }
+      }
+
+      // Verify that the assignee belongs to the project (unless it's an open project with no teamIds specified)
+      if (project && project.projectType !== 'individual' && Array.isArray(project.teamIds) && project.teamIds.length > 0) {
+        const isAssigneeInProject = project.leadId === assigneeId || project.teamIds.includes(assigneeId);
+        if (!isAssigneeInProject) {
+          throw ApiError.badRequest(`Assignee user with ID '${assigneeId}' is not a member of project '${project.name}'`);
+        }
+      }
+
       const newTask = await db.createTask({
         ...req.body,
         projectId: project.id,
         assigneeId,
         createdById: creatorId,
-        assignerId: creatorId,
+        assignerId: assignerId,
       });
       SocketService.emitEvent('taskCreated', newTask);
       ResponseHelper.created(res, newTask, 'Task created successfully', `/api/tasks/${newTask.id}`);

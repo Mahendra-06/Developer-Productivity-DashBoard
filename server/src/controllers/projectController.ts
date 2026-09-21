@@ -13,7 +13,8 @@ export class ProjectController {
       // When scope is 'mine', filter strictly to user's projects
       const userId = scope === 'mine' ? req.user?.id : undefined;
       const currentUserId = req.user?.id;
-      const projects = await db.getProjects({ status, search, userId, currentUserId, scope });
+      const userRole = req.user?.role;
+      const projects = await db.getProjects({ status, search, userId, currentUserId, userRole, scope });
       ResponseHelper.success(res, projects, 'Projects retrieved successfully', 200, {
         total: projects.length,
       });
@@ -22,12 +23,44 @@ export class ProjectController {
     }
   };
 
-  static getProjectById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static getProjectById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const project = await db.getProjectById(id);
       if (!project) {
         throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+      }
+      // Hide internal personal task workspaces
+      if (project.key.toUpperCase().startsWith('PERSONAL-')) {
+        const isOwner = req.user && (
+          project.leadId === req.user.id ||
+          (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id))
+        );
+        if (!isOwner) {
+          throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+        }
+      }
+
+      // Individual projects are private to their creator/members
+      if (project.projectType === 'individual') {
+        const isOwner = req.user && (
+          project.leadId === req.user.id ||
+          (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id))
+        );
+        if (!isOwner) {
+          throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+        }
+      }
+
+      if (req.user) {
+        const isPrivileged = Boolean(req.user.role && /\b(admin|manager|lead|staff|architect|principal)\b/i.test(req.user.role));
+        const isMember = (
+          project.leadId === req.user.id ||
+          (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id))
+        );
+        if (!isPrivileged && !isMember) {
+          throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+        }
       }
       ResponseHelper.success(res, project, 'Project retrieved successfully');
     } catch (error) {
@@ -35,12 +68,45 @@ export class ProjectController {
     }
   };
 
-  static getProjectDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  static getProjectDetails = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const details = await db.getProjectDetails(id);
       if (!details) {
         throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+      }
+      const project = details.project;
+      if (project) {
+        if (project.key.toUpperCase().startsWith('PERSONAL-')) {
+          const isOwner = req.user && (
+            project.leadId === req.user.id ||
+            (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id))
+          );
+          if (!isOwner) {
+            throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+          }
+        }
+
+        if (project.projectType === 'individual') {
+          const isOwner = req.user && (
+            project.leadId === req.user.id ||
+            (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id))
+          );
+          if (!isOwner) {
+            throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+          }
+        }
+
+        if (req.user) {
+          const isPrivileged = Boolean(req.user.role && /\b(admin|manager|lead|staff|architect|principal)\b/i.test(req.user.role));
+          const isMember = (
+            project.leadId === req.user.id ||
+            (Array.isArray(project.teamIds) && project.teamIds.includes(req.user.id))
+          );
+          if (!isPrivileged && !isMember) {
+            throw ApiError.notFound(`Project with ID or key '${id}' not found`);
+          }
+        }
       }
       ResponseHelper.success(res, details, 'Project details retrieved successfully');
     } catch (error) {

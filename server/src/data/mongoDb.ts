@@ -589,8 +589,11 @@ export class MongoDatabase {
   // PROJECTS CRUD (with relational joins & cascade)
   // ==========================================
 
-  public async getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; scope?: string }): Promise<Project[]> {
+  public async getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; userRole?: string; scope?: string }): Promise<Project[]> {
     const andClauses: any[] = [];
+
+    // Filter out internal personal task containers
+    andClauses.push({ key: { $not: /^PERSONAL-/i } });
 
     if (filters?.status && filters.status !== 'all') {
       andClauses.push({ status: filters.status });
@@ -605,14 +608,24 @@ export class MongoDatabase {
     if (filters?.userId) {
       andClauses.push({ $or: [{ leadId: filters.userId }, { teamIds: filters.userId }] });
     } else if (filters?.currentUserId) {
-      // Authenticated Team view: Team projects visible to all; Individual projects only visible to their owner
-      andClauses.push({
-        $or: [
-          { projectType: { $ne: 'individual' } },
-          { projectType: 'individual', leadId: filters.currentUserId },
-          { projectType: 'individual', teamIds: filters.currentUserId },
-        ],
-      });
+      const isPrivileged = Boolean(filters?.userRole && /\b(admin|manager|lead)\b/i.test(filters.userRole));
+      if (isPrivileged) {
+        andClauses.push({
+          $or: [
+            { projectType: { $ne: 'individual' } },
+            { projectType: 'individual', leadId: filters.currentUserId },
+            { projectType: 'individual', teamIds: filters.currentUserId },
+          ],
+        });
+      } else {
+        // Regular members only see projects they are lead or assigned member of
+        andClauses.push({
+          $or: [
+            { leadId: filters.currentUserId },
+            { teamIds: filters.currentUserId },
+          ],
+        });
+      }
     } else {
       // Unauthenticated / Anonymous: Only public/team projects are visible
       andClauses.push({ projectType: { $ne: 'individual' } });
@@ -888,7 +901,7 @@ export class MongoDatabase {
     if (filters?.authUser) {
       const authUser = filters.authUser;
       const role = authUser.role || '';
-      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
 
       const creatorOrAssigneeClauses: any[] = [
         { assigneeId: authUser.id },
@@ -897,35 +910,16 @@ export class MongoDatabase {
       ];
       if (authUser.username) {
         creatorOrAssigneeClauses.push({ 'assignee.username': authUser.username });
+        creatorOrAssigneeClauses.push({ 'assigner.username': authUser.username });
       }
       if (authUser.email) {
         creatorOrAssigneeClauses.push({ 'assignee.email': authUser.email });
+        creatorOrAssigneeClauses.push({ 'assigner.email': authUser.email });
       }
 
       if (!isPrivileged) {
-        // Find team projects that this member is part of
-        const userProjects = await ProjectModel.find({
-          $or: [
-            { leadId: authUser.id },
-            { teamIds: authUser.id },
-            { projectType: 'team', teamIds: { $size: 0 } },
-            { projectType: 'team', teamIds: { $exists: false } }
-          ],
-          key: { $not: /^PERSONAL-/i },
-          projectType: { $ne: 'individual' }
-        }, 'id').lean();
-
-        const authorizedProjectIds = userProjects.map((p: any) => p.id || String(p._id));
-
-        const regularMemberClauses: any[] = [...creatorOrAssigneeClauses];
-        if (authorizedProjectIds.length > 0) {
-          regularMemberClauses.push({
-            projectId: { $in: authorizedProjectIds },
-            key: { $not: /^PERSONAL-/i }
-          });
-        }
-
-        andClauses.push({ $or: regularMemberClauses });
+        // Regular members ONLY see tasks they created or are assigned to
+        andClauses.push({ $or: creatorOrAssigneeClauses });
       } else {
         const personalRegex = /^PERSONAL-/i;
         andClauses.push({
@@ -935,6 +929,9 @@ export class MongoDatabase {
           ]
         });
       }
+    } else {
+      // Unauthenticated: Exclude private/personal tasks
+      andClauses.push({ key: { $not: /^PERSONAL-/i } });
     }
 
     // Scope to user: only tasks assigned to this user
@@ -997,16 +994,11 @@ export class MongoDatabase {
         (u.email && u.email.toLowerCase() === assignerId.toLowerCase())
       ) : (t as any).assigner;
 
-      if (!assigner || assigner.id === assignee.id) {
-        const leadId = (project as any)?.leadId;
-        const assigneeId = t.assigneeId;
-        if (leadId && leadId !== assigneeId) {
-          assigner = users.find(u => u.id === leadId);
-        }
-        if (!assigner || assigner.id === assigneeId) {
-          assigner = users.find(u => u.id !== assigneeId && !u.id.startsWith('usr_gh_')) || users[0];
-        }
-      }
+      const createdBy = createdById ? users.find(u =>
+        u.id === createdById ||
+        (u.username && u.username.toLowerCase() === createdById.toLowerCase()) ||
+        (u.email && u.email.toLowerCase() === createdById.toLowerCase())
+      ) : assigner;
 
       return {
         ...t,
@@ -1014,6 +1006,7 @@ export class MongoDatabase {
         assignerId,
         assigner,
         createdById,
+        createdBy,
         projectName: project ? project.name : (t.projectName || 'General'),
       } as Task;
     });
@@ -1067,14 +1060,23 @@ export class MongoDatabase {
 
     if (!task) return null;
 
-    const [user, project] = await Promise.all([
+    const assignerId = (task as any).assignerId || (task as any).createdById;
+    const createdById = (task as any).createdById || (task as any).assignerId;
+
+    const [user, project, assignerUser, creatorUser] = await Promise.all([
       this.getUserById(task.assigneeId),
       ProjectModel.findOne({ id: task.projectId }, 'name').lean(),
+      assignerId ? this.getUserById(assignerId) : Promise.resolve(null),
+      createdById ? this.getUserById(createdById) : Promise.resolve(null),
     ]);
 
     return {
       ...task,
       assignee: user || undefined,
+      assignerId,
+      assigner: assignerUser || undefined,
+      createdById,
+      createdBy: creatorUser || assignerUser || undefined,
       projectName: project ? project.name : (task.projectName || 'General'),
     } as Task;
   }
@@ -1293,7 +1295,7 @@ export class MongoDatabase {
     if (filters?.authUser) {
       const authUser = filters.authUser;
       const role = authUser.role || '';
-      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
 
       const creatorOrAssigneeClauses = [
         { assigneeId: authUser.id },
@@ -1302,26 +1304,19 @@ export class MongoDatabase {
       ];
 
       if (!isPrivileged) {
-        const userProjects = await ProjectModel.find({
-          $or: [
-            { leadId: authUser.id },
-            { teamIds: authUser.id },
-            { projectType: 'team', teamIds: { $size: 0 } },
-            { projectType: 'team', teamIds: { $exists: false } }
-          ],
-          key: { $not: /^PERSONAL-/i },
-          projectType: { $ne: 'individual' }
-        }, 'id').lean();
-
-        const authorizedProjectIds = userProjects.map((p: any) => p.id || String(p._id));
-        const regularMemberClauses: any[] = [...creatorOrAssigneeClauses];
-        if (authorizedProjectIds.length > 0) {
-          regularMemberClauses.push({
-            projectId: { $in: authorizedProjectIds },
-            key: { $not: /^PERSONAL-/i }
-          });
-        }
-        taskAndClauses.push({ $or: regularMemberClauses });
+        taskAndClauses.push({ $or: creatorOrAssigneeClauses });
+        projQuery.$and = [
+          {
+            $or: [
+              { leadId: authUser.id },
+              { teamIds: authUser.id },
+              { projectType: 'team', teamIds: { $size: 0 } },
+              { projectType: 'team', teamIds: { $exists: false } }
+            ]
+          },
+          { key: { $not: /^PERSONAL-/i } },
+          { projectType: { $ne: 'individual' } }
+        ];
       } else {
         const personalRegex = /^PERSONAL-/i;
         taskAndClauses.push({
@@ -1330,6 +1325,11 @@ export class MongoDatabase {
             ...creatorOrAssigneeClauses
           ]
         });
+        projQuery.$or = [
+          { key: { $not: /^PERSONAL-/i }, projectType: { $ne: 'individual' } },
+          { leadId: authUser.id },
+          { teamIds: authUser.id }
+        ];
       }
     }
 

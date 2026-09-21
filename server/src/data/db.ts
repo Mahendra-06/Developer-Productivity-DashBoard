@@ -70,7 +70,7 @@ export interface IDatabase {
   acceptTeamInvitation(invitationId: string, acceptingUserId: string): Promise<TeamInvitation | null>;
   revokeTeamInvitation(inviterId: string, invitationId: string): Promise<boolean>;
 
-  getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; scope?: string }): Promise<Project[]>;
+  getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; userRole?: string; scope?: string }): Promise<Project[]>;
   getProjectById(idOrKey: string): Promise<Project | null | undefined>;
   getProjectByKey(key: string): Promise<Project | null | undefined>;
   getProjectDetails(idOrKey: string): Promise<any | null>;
@@ -728,7 +728,7 @@ export class LocalPersistentDatabase implements IDatabase {
   // PROJECTS CRUD
   // ==========================================
 
-  public async getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; scope?: string }): Promise<Project[]> {
+  public async getProjects(filters?: { status?: string; search?: string; userId?: string; currentUserId?: string; userRole?: string; scope?: string }): Promise<Project[]> {
     let result = [...this.projects];
 
     // Hide automatically created personal-task containers from project views.
@@ -760,12 +760,14 @@ export class LocalPersistentDatabase implements IDatabase {
         (p.teamIds || []).includes(filters.userId!)
       );
     } else if (filters?.currentUserId) {
-      // Authenticated Team view: Team projects visible to all; Individual projects only visible to their owner
+      const isPrivileged = Boolean(filters?.userRole && /\b(admin|manager|lead|staff|architect|principal)\b/i.test(filters.userRole));
       result = result.filter(p => {
         if (p.projectType === 'individual') {
           return p.leadId === filters.currentUserId || (p.teamIds || []).includes(filters.currentUserId!);
         }
-        return true;
+        if (isPrivileged) return true;
+        // Regular members only see projects they are lead or assigned member of
+        return p.leadId === filters.currentUserId || (p.teamIds || []).includes(filters.currentUserId!);
       });
     } else {
       // Unauthenticated: Only team projects
@@ -1003,27 +1005,11 @@ export class LocalPersistentDatabase implements IDatabase {
     if (filters?.authUser) {
       const authUser = filters.authUser;
       const role = authUser.role || '';
-      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
 
       const authUserId = authUser.id;
       const authEmail = authUser.email?.toLowerCase();
       const authUsername = authUser.username?.toLowerCase();
-
-      // Find authorized team project IDs for this member
-      const authorizedProjectIds = new Set(
-        this.projects
-          .filter(p => {
-            if (p.projectType === 'individual' || p.key.toUpperCase().startsWith('PERSONAL-')) {
-              return false;
-            }
-            return (
-              p.leadId === authUserId ||
-              (p.teamIds && p.teamIds.includes(authUserId)) ||
-              (p.projectType === 'team' && (!p.teamIds || p.teamIds.length === 0))
-            );
-          })
-          .map(p => p.id)
-      );
 
       result = result.filter(t => {
         const isAssignee = t.assigneeId === authUserId ||
@@ -1053,9 +1039,12 @@ export class LocalPersistentDatabase implements IDatabase {
           return true;
         }
 
-        const isTeamProjectTask = Boolean(t.projectId && authorizedProjectIds.has(t.projectId));
-        return isOwner || isTeamProjectTask;
+        // Regular members ONLY see tasks they created or are assigned to
+        return isOwner;
       });
+    } else {
+      // Unauthenticated: Exclude private/personal tasks
+      result = result.filter(t => !t.key?.toUpperCase().startsWith('PERSONAL-'));
     }
 
     // Scope to user: explicit user query filtering (e.g. scope: 'mine')
@@ -1202,21 +1191,19 @@ export class LocalPersistentDatabase implements IDatabase {
       (u.email && u.email.toLowerCase() === task.assignerId?.toLowerCase())
     ) || task.assigner) : task.assigner;
 
-    if (!assigner || assigner.id === assignee.id) {
-      const leadId = project?.leadId;
-      const assigneeId = task.assigneeId;
-      if (leadId && leadId !== assigneeId) {
-        assigner = this.users.find(u => u.id === leadId) || project?.lead;
-      }
-      if (!assigner || assigner.id === assigneeId) {
-        assigner = this.users.find(u => u.id !== assigneeId && !u.id.startsWith('usr_gh_')) || this.users[0];
-      }
-    }
+    const createdById = task.createdById || task.assignerId;
+    const createdBy = createdById ? (this.users.find(
+      u => u.id === createdById || 
+      (u.username && u.username.toLowerCase() === createdById.toLowerCase()) || 
+      (u.email && u.email.toLowerCase() === createdById.toLowerCase())
+    ) || assigner) : undefined;
 
     return {
       ...task,
       assignee,
       assigner,
+      createdById,
+      createdBy,
       projectName: project ? project.name : 'General',
     };
   }
@@ -1406,22 +1393,20 @@ export class LocalPersistentDatabase implements IDatabase {
     if (filters?.authUser) {
       const authUser = filters.authUser;
       const role = authUser.role || '';
-      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
 
-      const authorizedProjectIds = new Set(
-        this.projects
-          .filter(p => {
-            if (p.projectType === 'individual' || p.key.toUpperCase().startsWith('PERSONAL-')) {
-              return false;
-            }
-            return (
-              p.leadId === authUser.id ||
-              (p.teamIds && p.teamIds.includes(authUser.id)) ||
-              (p.projectType === 'team' && (!p.teamIds || p.teamIds.length === 0))
-            );
-          })
-          .map(p => p.id)
-      );
+      scopedProjects = scopedProjects.filter(p => {
+        const isPersonal = p.projectType === 'individual' || p.key.toUpperCase().startsWith('PERSONAL-');
+        if (isPersonal) {
+          return p.leadId === authUser.id || (p.teamIds && p.teamIds.includes(authUser.id));
+        }
+        if (isPrivileged) return true;
+        return (
+          p.leadId === authUser.id ||
+          (p.teamIds && p.teamIds.includes(authUser.id)) ||
+          (p.projectType === 'team' && (!p.teamIds || p.teamIds.length === 0))
+        );
+      });
 
       scopedTasks = scopedTasks.filter(t => {
         const isOwner = (
@@ -1432,8 +1417,7 @@ export class LocalPersistentDatabase implements IDatabase {
         const isPersonal = Boolean(t.key && t.key.toUpperCase().startsWith('PERSONAL-'));
         if (isPersonal) return isOwner;
         if (isPrivileged) return true;
-        const isTeamProjectTask = Boolean(t.projectId && authorizedProjectIds.has(t.projectId));
-        return isOwner || isTeamProjectTask;
+        return isOwner;
       });
     }
 

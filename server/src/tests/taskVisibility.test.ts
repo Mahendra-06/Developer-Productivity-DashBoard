@@ -86,8 +86,8 @@ async function runVisibilityTests() {
     let createdTaskByMember2ForStaffId = '';
     let personalTaskId = '';
 
-    // 1. Regular member has scoped visibility limited to their projects and assigned tasks
-    await testCase('GET /api/tasks: Regular member has scoped visibility limited to their projects and assigned tasks', async () => {
+    // 1. Regular member has scoped visibility limited to their created or assigned tasks
+    await testCase('GET /api/tasks: Regular member has scoped visibility limited to their created or assigned tasks', async () => {
       const res = await fetch(`${BASE_URL}/tasks`, {
         headers: {
           'Authorization': `Bearer ${member2Token}`,
@@ -95,10 +95,10 @@ async function runVisibilityTests() {
       });
       assert(res.status === 200, `Expected 200, got ${res.status}`);
       const body: any = await res.json();
-      // usr_4 belongs to proj_1 and proj_5 (6 tasks), not all 12 tasks
-      assert(body.data.length === 6, `Regular member should only see tasks from their projects, got ${body.data.length}`);
-      const unauthorizedTasks = body.data.filter((t: any) => t.projectId === 'proj_2' || t.projectId === 'proj_4');
-      assert(unauthorizedTasks.length === 0, 'Regular member should not see tasks from unrelated projects');
+      // usr_4 (Elena) is assigned to task_7, task_11, and task_15 (3 tasks) in fixtures, not other members' tasks
+      assert(body.data.length === 3, `Regular member should only see tasks assigned to them, got ${body.data.length}`);
+      const unauthorizedTasks = body.data.filter((t: any) => t.assigneeId !== regularMember2.id && t.createdById !== regularMember2.id);
+      assert(unauthorizedTasks.length === 0, 'Regular member should not see tasks assigned to or created by others');
     });
 
     // 2. Task creation stores authenticated creator relationship correctly & ignores spoofing
@@ -291,8 +291,132 @@ async function runVisibilityTests() {
       assert(res.status === 200, `Expected 200, got ${res.status}`);
       const body: any = await res.json();
       assert(typeof body.data.tasks.total === 'number', 'Expected tasks.total number');
-      // Member 1 belongs to proj_1, proj_3, and proj_6 + createdTaskByMember1ForMember2Id + personalTaskId = 10 tasks
-      assert(body.data.tasks.total === 10, `Expected 10 tasks scoped for member 1, got ${body.data.tasks.total}`);
+      // Member 1 assigned tasks in fixtures (task_5, task_6, task_10 = 3) + createdTaskByMember1ForMember2Id (1) + personalTaskId (1) = 5 tasks
+      assert(body.data.tasks.total === 5, `Expected 5 tasks scoped for member 1, got ${body.data.tasks.total}`);
+    });
+
+    // 14. Project visibility: Regular member only sees projects they are lead or member of
+    await testCase('GET /api/projects: Regular member only sees assigned projects', async () => {
+      const res = await fetch(`${BASE_URL}/projects`, {
+        headers: {
+          'Authorization': `Bearer ${member1Token}`,
+        },
+      });
+
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      assert(Array.isArray(body.data), 'Expected array of projects');
+      const projectIds = body.data.map((p: any) => p.id);
+      assert(projectIds.includes('proj_1'), 'Member 1 should see proj_1');
+      assert(projectIds.includes('proj_3'), 'Member 1 should see proj_3');
+      assert(projectIds.includes('proj_6'), 'Member 1 should see proj_6');
+      assert(!projectIds.includes('proj_2'), 'Member 1 must NOT see proj_2 (they are not a member or lead)');
+      assert(!projectIds.includes('proj_4'), 'Member 1 must NOT see proj_4 (they are not a member or lead)');
+      assert(!projectIds.includes('proj_5'), 'Member 1 must NOT see proj_5 (they are not a member or lead)');
+    });
+
+    // 15. Direct project access: Regular member cannot access project they are not a member of
+    await testCase('GET /api/projects/:id: Regular member receives 404 for unassigned project', async () => {
+      const res = await fetch(`${BASE_URL}/projects/proj_2`, {
+        headers: {
+          'Authorization': `Bearer ${member1Token}`,
+        },
+      });
+
+      assert(res.status === 404, `Expected 404 for unauthorized project, got ${res.status}`);
+    });
+
+    // 16. Privileged Lead sees all projects
+    await testCase('GET /api/projects: Lead retains visibility across all team projects', async () => {
+      const res = await fetch(`${BASE_URL}/projects`, {
+        headers: {
+          'Authorization': `Bearer ${leadToken}`,
+        },
+      });
+
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      const projectIds = body.data.map((p: any) => p.id);
+      assert(projectIds.includes('proj_1'), 'Lead should see proj_1');
+      assert(projectIds.includes('proj_2'), 'Lead should see proj_2');
+      assert(projectIds.includes('proj_3'), 'Lead should see proj_3');
+    });
+
+    // 17. Regular member cannot update another member's task
+    await testCase('PATCH /api/tasks/:id: Regular member receives 404 attempting to update another member\'s task', async () => {
+      const res = await fetch(`${BASE_URL}/tasks/${createdTaskByMember2ForStaffId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${member1Token}`,
+        },
+        body: JSON.stringify({
+          title: 'Hacked Title By Member 1',
+        }),
+      });
+
+      assert(res.status === 404, `Expected 404 Not Found, got ${res.status}`);
+    });
+
+    // 18. Regular member cannot delete another member's task
+    await testCase('DELETE /api/tasks/:id: Regular member receives 404 attempting to delete another member\'s task', async () => {
+      const res = await fetch(`${BASE_URL}/tasks/${createdTaskByMember2ForStaffId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${member1Token}`,
+        },
+      });
+
+      assert(res.status === 404, `Expected 404 Not Found, got ${res.status}`);
+    });
+
+    // 19. Regular member cannot access project details for an unassigned project
+    await testCase('GET /api/projects/:id/details: Regular member receives 404 for unassigned project details', async () => {
+      const res = await fetch(`${BASE_URL}/projects/proj_2/details`, {
+        headers: {
+          'Authorization': `Bearer ${member1Token}`,
+        },
+      });
+
+      assert(res.status === 404, `Expected 404 for unauthorized project details, got ${res.status}`);
+    });
+
+    // 20. Regular member passing scope=team query parameter cannot bypass owner restriction
+    await testCase('GET /api/tasks?scope=team: Regular member cannot bypass owner restriction with query scope', async () => {
+      const res = await fetch(`${BASE_URL}/tasks?scope=team`, {
+        headers: {
+          'Authorization': `Bearer ${member2Token}`,
+        },
+      });
+
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body: any = await res.json();
+      const unauthorizedTasks = body.data.filter((t: any) => t.assigneeId !== regularMember2.id && t.createdById !== regularMember2.id);
+      assert(unauthorizedTasks.length === 0, 'Regular member should not see tasks assigned to or created by others even with scope=team');
+    });
+
+    // 21. Rejects task assignment if assignee does not belong to project
+    await testCase('POST /api/tasks: Rejects task assignment if assignee does not belong to project', async () => {
+      const res = await fetch(`${BASE_URL}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${member1Token}`,
+        },
+        body: JSON.stringify({
+          title: 'Unauthorized Project Assignment',
+          description: 'Assigning to Sarah who is not in proj_1',
+          projectId: 'proj_1',
+          assigneeId: 'usr_2',
+          dueDate: '2026-10-15',
+          status: 'backlog',
+          priority: 'low',
+        }),
+      });
+
+      assert(res.status === 400, `Expected 400 Bad Request, got ${res.status}`);
+      const body: any = await res.json();
+      assert(body.message?.includes('is not a member of project'), `Expected message about member of project, got ${body.message}`);
     });
 
   } finally {

@@ -289,6 +289,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const hasAuth = Boolean(token);
     const effectiveUser = authenticatedUser || (hasAuth ? user : null);
     const scopeFilter = hasAuth ? { scope: 'mine' } : undefined;
+    const isPrivileged = Boolean(effectiveUser?.role && /\b(admin|manager|lead|staff|architect|principal)\b/i.test(effectiveUser.role));
+    const taskScope = isPrivileged ? 'team' : 'mine';
 
     try {
       const [
@@ -301,7 +303,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         backendDeployments,
         backendInvitations
       ] = await Promise.allSettled([
-        api.getTasks({ scope: 'team' }),
+        api.getTasks(hasAuth ? { scope: taskScope } : undefined),
         api.getProjects({ scope: 'team' }),
         api.getUsers(hasAuth ? { scope: 'team' } : undefined),
         api.getAnalytics(scopeFilter),
@@ -353,21 +355,21 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           // user-managed projects or CI/CD repositories.
           if (p.key?.toUpperCase().startsWith('PERSONAL-')) return false;
 
-          // Team projects are visible to all members
-          const isIndividual = p.projectType === 'individual';
-          if (!isIndividual) return true;
-
-          // Individual projects are strictly private to their owner/creator
           if (!effectiveUser || effectiveUser.id === 'usr_guest') return false;
 
-          const isOwner = (
+          // Privileged roles see all team projects and their own individual projects
+          const isPrivileged = Boolean(effectiveUser.role && /\b(admin|manager|lead|staff|architect|principal)\b/i.test(effectiveUser.role));
+          if (isPrivileged && p.projectType !== 'individual') return true;
+
+          const isMember = (
             (currentUserId && (p.leadId === currentUserId || p.lead?.id === currentUserId)) ||
             (currentUsername && (p.lead?.username?.toLowerCase() === currentUsername || (p as any).leadUsername?.toLowerCase() === currentUsername)) ||
             (currentEmail && (p.lead?.email?.toLowerCase() === currentEmail || (p as any).leadEmail?.toLowerCase() === currentEmail)) ||
             (currentName && p.lead?.name?.toLowerCase() === currentName) ||
-            (currentUserId && Array.isArray(p.teamIds) && p.teamIds.includes(currentUserId))
+            (currentUserId && Array.isArray(p.teamIds) && p.teamIds.includes(currentUserId)) ||
+            (currentUserId && Array.isArray(p.team) && p.team.some((m: any) => m.id === currentUserId))
           );
-          return Boolean(isOwner);
+          return Boolean(isMember);
         });
 
         mappedProjects = accessibleProjects.map((p: any) => {
@@ -628,15 +630,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
 
         if (!isPrivileged && !isOwner) {
-          const proj = projects.find(p => p.id === newTask.projectId);
-          const isProjectMember = Boolean(
-            proj && proj.projectType !== 'individual' && !proj.key.toUpperCase().startsWith('PERSONAL-') && (
-              proj.leadId === user.id || (proj.teamIds && proj.teamIds.includes(user.id)) || (!proj.teamIds || proj.teamIds.length === 0)
-            )
-          );
-          if (!isProjectMember) {
-            return prev;
-          }
+          return prev;
         }
       }
 
@@ -644,7 +638,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
     const handleTaskUpdated = (updatedTask: any) => setTasks(prev => {
       const role = user?.role || '';
-      const isPrivileged = /\b(admin|manager|lead)\b/i.test(role.trim());
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
       const isPersonal = Boolean(updatedTask.key && updatedTask.key.toUpperCase().startsWith('PERSONAL-'));
 
       if (user?.id && user.id !== 'usr_guest') {
@@ -663,23 +657,49 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
 
         if (!isPrivileged && !isOwner) {
-          const proj = projects.find(p => p.id === updatedTask.projectId);
-          const isProjectMember = Boolean(
-            proj && proj.projectType !== 'individual' && !proj.key.toUpperCase().startsWith('PERSONAL-') && (
-              proj.leadId === user.id || (proj.teamIds && proj.teamIds.includes(user.id)) || (!proj.teamIds || proj.teamIds.length === 0)
-            )
-          );
-          if (!isProjectMember) {
-            return prev.filter(t => t.id !== updatedTask.id);
-          }
+          return prev.filter(t => t.id !== updatedTask.id);
         }
       }
       return prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t);
     });
     const handleTaskDeleted = ({ id }: { id: string }) => setTasks(prev => prev.filter(t => t.id !== id));
 
-    const handleProjectCreated = (newProj: any) => setProjects(prev => [...prev, newProj]);
-    const handleProjectUpdated = (updatedProj: any) => setProjects(prev => prev.map(p => p.id === updatedProj.id ? { ...p, ...updatedProj } : p));
+    const handleProjectCreated = (newProj: any) => setProjects(prev => {
+      if (prev.some(p => p.id === newProj.id)) return prev;
+      if (newProj.key?.toUpperCase().startsWith('PERSONAL-')) return prev;
+      const role = user?.role || '';
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
+      if (isPrivileged && newProj.projectType !== 'individual') {
+        return [...prev, newProj];
+      }
+      const isMember = (
+        (user?.id && (newProj.leadId === user.id || newProj.lead?.id === user.id)) ||
+        (user?.username && (newProj.lead?.username?.toLowerCase() === user.username.toLowerCase())) ||
+        (user?.email && (newProj.lead?.email?.toLowerCase() === user.email.toLowerCase())) ||
+        (user?.id && Array.isArray(newProj.teamIds) && newProj.teamIds.includes(user.id)) ||
+        (user?.id && Array.isArray(newProj.team) && newProj.team.some((m: any) => m.id === user.id))
+      );
+      if (!isMember) return prev;
+      return [...prev, newProj];
+    });
+
+    const handleProjectUpdated = (updatedProj: any) => setProjects(prev => {
+      if (updatedProj.key?.toUpperCase().startsWith('PERSONAL-')) return prev.filter(p => p.id !== updatedProj.id);
+      const role = user?.role || '';
+      const isPrivileged = /\b(admin|manager|lead|staff|architect|principal)\b/i.test(role.trim());
+      const isMember = (
+        (isPrivileged && updatedProj.projectType !== 'individual') ||
+        (user?.id && (updatedProj.leadId === user.id || updatedProj.lead?.id === user.id)) ||
+        (user?.username && (updatedProj.lead?.username?.toLowerCase() === user.username.toLowerCase())) ||
+        (user?.email && (updatedProj.lead?.email?.toLowerCase() === user.email.toLowerCase())) ||
+        (user?.id && Array.isArray(updatedProj.teamIds) && updatedProj.teamIds.includes(user.id)) ||
+        (user?.id && Array.isArray(updatedProj.team) && updatedProj.team.some((m: any) => m.id === user.id))
+      );
+      if (!isMember) {
+        return prev.filter(p => p.id !== updatedProj.id);
+      }
+      return prev.map(p => p.id === updatedProj.id ? { ...p, ...updatedProj } : p);
+    });
     const handleProjectDeleted = ({ id }: { id: string }) => setProjects(prev => prev.filter(p => p.id !== id));
 
     const handlePrCreated = (newPr: any) => setPrs(prev => [newPr, ...prev]);
